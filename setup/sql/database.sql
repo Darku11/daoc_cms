@@ -1781,7 +1781,7 @@ INSERT INTO `cms_translations` (`id`, `lang_code`, `var_context`, `var_key`, `va
 	(1912, 'de', 'core', 'acp_cc_position', 'Position'),
 	(1913, 'de', 'core', 'acp_cc_privilege', 'Privileg'),
 	(1914, 'de', 'core', 'acp_cc_save', 'SPEICHERN'),
-	(1915, 'de', 'core', 'acp_cc_misc', 'Miscellaneous'),
+	(1915, 'de', 'core', 'acp_cc_misc', 'Links/Module/Seiten anzeigen'),
 	(1916, 'de', 'core', 'acp_cc_edit', 'Bearbeiten'),
 	(1917, 'de', 'core', 'acp_cc_delete', 'Löschen'),
 	(1918, 'de', 'core', 'acp_cc_confirm_delete', 'Eintrag \'%s\' wirklich löschen?'),
@@ -5143,7 +5143,7 @@ INSERT INTO `cms_translations` (`id`, `lang_code`, `var_context`, `var_key`, `va
 	(8770, 'es', 'core', 'acp_cc_position', 'Posición'),
 	(8771, 'es', 'core', 'acp_cc_privilege', 'Privilegio'),
 	(8772, 'es', 'core', 'acp_cc_save', 'GUARDAR'),
-	(8773, 'es', 'core', 'acp_cc_misc', 'Varios'),
+	(8773, 'es', 'core', 'acp_cc_misc', 'Mostrar enlaces/módulos/páginas'),
 	(8774, 'es', 'core', 'acp_cc_edit', 'Editar'),
 	(8775, 'es', 'core', 'acp_cc_delete', 'Eliminar'),
 	(8776, 'es', 'core', 'acp_cc_confirm_delete', '¿De verdad eliminar la entrada \'%s\'?'),
@@ -6535,7 +6535,7 @@ INSERT INTO `cms_translations` (`id`, `lang_code`, `var_context`, `var_key`, `va
 	(10170, 'it', 'core', 'acp_cc_position', 'Posizione'),
 	(10171, 'it', 'core', 'acp_cc_privilege', 'Privilegio'),
 	(10172, 'it', 'core', 'acp_cc_save', 'SALVA'),
-	(10173, 'it', 'core', 'acp_cc_misc', 'Varie'),
+	(10173, 'it', 'core', 'acp_cc_misc', 'Mostra link/moduli/pagine'),
 	(10174, 'it', 'core', 'acp_cc_edit', 'Modifica'),
 	(10175, 'it', 'core', 'acp_cc_delete', 'Elimina'),
 	(10176, 'it', 'core', 'acp_cc_confirm_delete', 'Vuoi davvero eliminare la voce \'%s\'?'),
@@ -8421,7 +8421,264 @@ CREATE TABLE IF NOT EXISTS `pages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO `pages` (`slug`, `title`, `content`, `status`, `published_at`, `menu_category`, `menu_pos`, `parent_slug`, `lang`, `translation_group`, `template_key`, `template_data`, `min_priv`, `meta_title`, `meta_description`, `hero_image`) VALUES
-	('home', 'You are all set!', '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>Installation Complete · DAoC CMS</title>\n\n\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">\n\n<style>\n\n\n.setup-finish-page{\n  \n  --sf-night:      #0D1220;\n  --sf-night-2:    #131A2B;\n  --sf-panel:      #172033;\n  --sf-line:       #29354F;\n  --sf-gold:       #D6B04A;\n  --sf-gold-soft:  #F2DFA6;\n  --sf-parchment:  #E6E1D3;\n  --sf-muted:      #98A2B8;\n  --sf-alb:        #C0453F;\n  --sf-mid:        #4E8AC4;\n  --sf-hib:        #47946A;\n\n  --sf-display: "IM Fell English SC", "Palatino Linotype", Georgia, serif;\n  --sf-body:    "Spectral", Georgia, "Times New Roman", serif;\n  --sf-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;\n\n  --sf-max: 1080px;\n\n  box-sizing: border-box;\n  min-height: 100vh;\n  margin: 0;\n  padding: clamp(2rem, 6vw, 5.5rem) clamp(1.1rem, 5vw, 3rem) 4rem;\n  font-family: var(--sf-body);\n  font-size: 17px;\n  line-height: 1.7;\n  color: var(--sf-parchment);\n  background-color: var(--sf-night);\n  background-image:\n    radial-gradient(120% 70% at 50% -10%, rgba(214,176,74,.16) 0%, rgba(214,176,74,0) 60%),\n    radial-gradient(90% 60% at 12% 100%, rgba(78,138,196,.10) 0%, rgba(78,138,196,0) 70%),\n    radial-gradient(90% 60% at 88% 100%, rgba(71,148,106,.10) 0%, rgba(71,148,106,0) 70%);\n  -webkit-font-smoothing: antialiased;\n}\n.setup-finish-page *,\n.setup-finish-page *::before,\n.setup-finish-page *::after{ box-sizing: inherit; }\n\n.setup-finish-page p{ margin: 0 0 1rem; }\n.setup-finish-page p:last-child{ margin-bottom: 0; }\n\n.setup-finish-page h1,\n.setup-finish-page h2,\n.setup-finish-page h3{\n  font-family: var(--sf-display);\n  font-weight: 400;\n  letter-spacing: .01em;\n  margin: 0;\n}\n\n.setup-finish-page a{ color: var(--sf-gold-soft); }\n\n.setup-finish-page :focus-visible{\n  outline: 2px solid var(--sf-gold);\n  outline-offset: 3px;\n  border-radius: 2px;\n}\n\n.setup-finish-page .sf-shell{\n  max-width: var(--sf-max);\n  margin: 0 auto;\n}\n\n\n.setup-finish-page .sf-eyebrow{\n  font-family: var(--sf-mono);\n  font-size: .72rem;\n  font-weight: 600;\n  letter-spacing: .22em;\n  text-transform: uppercase;\n  color: var(--sf-gold);\n  margin: 0 0 1.4rem;\n}\n.setup-finish-page .sf-eyebrow span{ color: var(--sf-muted); }\n\n\n.setup-finish-page .sf-hero{\n  text-align: center;\n  padding-bottom: clamp(2.5rem, 6vw, 4rem);\n}\n\n.setup-finish-page .sf-crest{\n  width: clamp(84px, 12vw, 112px);\n  height: auto;\n  display: block;\n  margin: 0 auto 1.8rem;\n  filter: drop-shadow(0 6px 26px rgba(214,176,74,.28));\n}\n.setup-finish-page .sf-crest .sf-crest-outline{\n  stroke-dasharray: 460;\n  stroke-dashoffset: 460;\n  animation: sf-draw 1.5s cubic-bezier(.65,0,.35,1) forwards;\n}\n.setup-finish-page .sf-crest .sf-crest-fill{ opacity: 0; animation: sf-fade .9s ease .75s forwards; }\n.setup-finish-page .sf-crest .sf-crest-mark{ opacity: 0; animation: sf-fade .7s ease 1.15s forwards; }\n\n.setup-finish-page .sf-title{\n  font-size: clamp(2.6rem, 7.5vw, 5rem);\n  line-height: 1.02;\n  color: var(--sf-parchment);\n  text-wrap: balance;\n  margin-bottom: 1.2rem;\n}\n.setup-finish-page .sf-title em{\n  font-style: normal;\n  color: var(--sf-gold);\n}\n\n.setup-finish-page .sf-lede{\n  max-width: 46ch;\n  margin: 0 auto;\n  font-size: clamp(1.02rem, 2vw, 1.16rem);\n  font-weight: 300;\n  color: #C3C9D8;\n  text-wrap: pretty;\n}\n\n\n.setup-finish-page .sf-actions{\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n  gap: .8rem;\n  margin-top: 2.2rem;\n}\n\n.setup-finish-page .sf-btn{\n  display: inline-flex;\n  align-items: center;\n  gap: .6rem;\n  padding: .85rem 1.7rem;\n  font-family: var(--sf-mono);\n  font-size: .78rem;\n  font-weight: 600;\n  letter-spacing: .16em;\n  text-transform: uppercase;\n  text-decoration: none;\n  border: 1px solid var(--sf-line);\n  border-radius: 2px;\n  transition: transform .18s ease, background-color .18s ease,\n              border-color .18s ease, color .18s ease, box-shadow .18s ease;\n}\n.setup-finish-page .sf-btn:hover{ transform: translateY(-2px); }\n\n.setup-finish-page .sf-btn--primary{\n  background: linear-gradient(180deg, var(--sf-gold-soft), var(--sf-gold));\n  border-color: var(--sf-gold-soft);\n  color: #211803;\n  box-shadow: 0 10px 30px -12px rgba(214,176,74,.7);\n}\n.setup-finish-page .sf-btn--primary:hover{ box-shadow: 0 16px 36px -12px rgba(214,176,74,.85); }\n\n.setup-finish-page .sf-btn--ghost{\n  background: transparent;\n  color: var(--sf-parchment);\n}\n.setup-finish-page .sf-btn--ghost:hover{\n  border-color: var(--sf-gold);\n  color: var(--sf-gold-soft);\n}\n\n.setup-finish-page .sf-btn--card{\n  padding: .7rem 1.2rem;\n  font-size: .72rem;\n  align-self: flex-start;\n  margin-top: 1.4rem;\n  background: transparent;\n  color: var(--sf-parchment);\n}\n.setup-finish-page .sf-btn--card:hover{ border-color: currentColor; }\n\n\n.setup-finish-page .sf-battlement{\n  --tooth: 18px;\n  position: relative;\n  height: 9px;\n  margin: 0 auto;\n  max-width: 100%;\n  background:\n    repeating-linear-gradient(90deg,\n      var(--sf-line) 0 var(--tooth),\n      transparent var(--tooth) calc(var(--tooth) * 2));\n  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);\n          mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);\n}\n.setup-finish-page .sf-battlement::after{\n  content: "";\n  position: absolute;\n  left: 0; right: 0; bottom: -1px;\n  height: 1px;\n  background: linear-gradient(90deg, transparent, var(--sf-gold), transparent);\n  opacity: .55;\n}\n\n\n.setup-finish-page .sf-board{\n  display: grid;\n  grid-template-columns: 1fr;\n  gap: clamp(1.6rem, 4vw, 3rem);\n  padding: clamp(2.4rem, 5vw, 3.4rem) 0;\n}\n@media (min-width: 820px){\n  .setup-finish-page .sf-board{ grid-template-columns: 1fr 1.05fr; }\n}\n\n.setup-finish-page .sf-board-head{\n  display: flex;\n  align-items: baseline;\n  justify-content: space-between;\n  gap: 1rem;\n  padding-bottom: .9rem;\n  margin-bottom: 1.2rem;\n  border-bottom: 1px solid var(--sf-line);\n}\n.setup-finish-page .sf-board-head h2{\n  font-size: 1.32rem;\n  color: var(--sf-parchment);\n}\n.setup-finish-page .sf-count{\n  font-family: var(--sf-mono);\n  font-size: .74rem;\n  letter-spacing: .12em;\n  color: var(--sf-muted);\n}\n\n.setup-finish-page .sf-list{\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n.setup-finish-page .sf-check{\n  display: grid;\n  grid-template-columns: 1.5rem 1fr;\n  align-items: start;\n  gap: .8rem;\n  padding: .62rem 0;\n  border-bottom: 1px solid rgba(41,53,79,.5);\n}\n.setup-finish-page .sf-check:last-child{ border-bottom: 0; }\n.setup-finish-page .sf-check svg{ margin-top: .38rem; }\n.setup-finish-page .sf-check b{\n  display: block;\n  font-family: var(--sf-body);\n  font-weight: 600;\n  font-size: .98rem;\n  color: var(--sf-parchment);\n}\n.setup-finish-page .sf-check small{\n  font-family: var(--sf-mono);\n  font-size: .73rem;\n  letter-spacing: .04em;\n  color: var(--sf-muted);\n}\n\n\n.setup-finish-page .sf-todo{\n  position: relative;\n  padding: 1.15rem 1.3rem;\n  margin-bottom: .9rem;\n  background: linear-gradient(180deg, rgba(214,176,74,.07), rgba(214,176,74,.02));\n  border: 1px solid rgba(214,176,74,.28);\n  border-left: 3px solid var(--sf-gold);\n  border-radius: 2px;\n}\n.setup-finish-page .sf-todo:last-child{ margin-bottom: 0; }\n.setup-finish-page .sf-todo h3{\n  font-size: 1.12rem;\n  color: var(--sf-gold-soft);\n  margin-bottom: .35rem;\n}\n.setup-finish-page .sf-todo p{\n  font-size: .95rem;\n  font-weight: 300;\n  color: #C3C9D8;\n  margin-bottom: .7rem;\n}\n.setup-finish-page .sf-todo p:last-child{ margin-bottom: 0; }\n.setup-finish-page .sf-path{\n  display: inline-block;\n  font-family: var(--sf-mono);\n  font-size: .78rem;\n  padding: .28rem .6rem;\n  background: rgba(13,18,32,.75);\n  border: 1px solid var(--sf-line);\n  border-radius: 2px;\n  color: var(--sf-gold-soft);\n}\n.setup-finish-page .sf-todo-link{\n  font-family: var(--sf-mono);\n  font-size: .74rem;\n  font-weight: 600;\n  letter-spacing: .14em;\n  text-transform: uppercase;\n  text-decoration: none;\n  color: var(--sf-gold);\n  border-bottom: 1px solid rgba(214,176,74,.4);\n  padding-bottom: 2px;\n  transition: color .18s ease, border-color .18s ease;\n}\n.setup-finish-page .sf-todo-link:hover{\n  color: var(--sf-gold-soft);\n  border-color: var(--sf-gold-soft);\n}\n\n\n.setup-finish-page .sf-realms{\n  padding: clamp(2.4rem, 5vw, 3.6rem) 0 0;\n}\n.setup-finish-page .sf-section-title{\n  text-align: center;\n  font-size: clamp(1.5rem, 3.4vw, 2.1rem);\n  color: var(--sf-parchment);\n  margin-bottom: .5rem;\n}\n.setup-finish-page .sf-section-sub{\n  text-align: center;\n  font-weight: 300;\n  color: var(--sf-muted);\n  max-width: 44ch;\n  margin: 0 auto clamp(2rem, 4vw, 2.8rem);\n}\n\n.setup-finish-page .sf-grid{\n  display: grid;\n  grid-template-columns: 1fr;\n  gap: 1.1rem;\n}\n@media (min-width: 760px){\n  .setup-finish-page .sf-grid{ grid-template-columns: repeat(3, 1fr); }\n}\n\n.setup-finish-page .sf-card{\n  --realm: var(--sf-gold);\n  position: relative;\n  display: flex;\n  flex-direction: column;\n  padding: 1.9rem 1.6rem 1.7rem;\n  background: linear-gradient(180deg, var(--sf-panel), var(--sf-night-2));\n  border: 1px solid var(--sf-line);\n  border-radius: 3px;\n  overflow: hidden;\n  transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;\n}\n.setup-finish-page .sf-card::before{\n  content: "";\n  position: absolute;\n  inset: 0 0 auto 0;\n  height: 2px;\n  background: var(--realm);\n  opacity: .85;\n}\n.setup-finish-page .sf-card::after{\n  content: "";\n  position: absolute;\n  inset: -40% -40% auto auto;\n  width: 240px; height: 240px;\n  background: radial-gradient(circle, color-mix(in srgb, var(--realm) 45%, transparent) 0%, transparent 68%);\n  opacity: .16;\n  pointer-events: none;\n  transition: opacity .3s ease;\n}\n.setup-finish-page .sf-card:hover{\n  transform: translateY(-4px);\n  border-color: color-mix(in srgb, var(--realm) 55%, var(--sf-line));\n  box-shadow: 0 22px 48px -26px rgba(0,0,0,.9);\n}\n.setup-finish-page .sf-card:hover::after{ opacity: .3; }\n\n.setup-finish-page .sf-card--albion{   --realm: var(--sf-alb); }\n.setup-finish-page .sf-card--midgard{  --realm: var(--sf-mid); }\n.setup-finish-page .sf-card--hibernia{ --realm: var(--sf-hib); }\n\n.setup-finish-page .sf-realm-tag{\n  display: flex;\n  align-items: center;\n  gap: .5rem;\n  font-family: var(--sf-mono);\n  font-size: .68rem;\n  font-weight: 600;\n  letter-spacing: .2em;\n  text-transform: uppercase;\n  color: var(--realm);\n  margin-bottom: 1.1rem;\n}\n.setup-finish-page .sf-realm-tag::after{\n  content: "";\n  flex: 1;\n  height: 1px;\n  background: linear-gradient(90deg, color-mix(in srgb, var(--realm) 55%, transparent), transparent);\n}\n\n.setup-finish-page .sf-card h3{\n  font-size: 1.34rem;\n  color: var(--sf-parchment);\n  margin-bottom: .9rem;\n}\n.setup-finish-page .sf-card ul{\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n.setup-finish-page .sf-card li{\n  position: relative;\n  padding-left: 1.15rem;\n  padding-bottom: .62rem;\n  font-size: .96rem;\n  font-weight: 300;\n  color: #C3C9D8;\n}\n.setup-finish-page .sf-card li:last-child{ padding-bottom: 0; }\n.setup-finish-page .sf-card li::before{\n  content: "";\n  position: absolute;\n  left: 0; top: .62rem;\n  width: 5px; height: 5px;\n  background: var(--realm);\n  transform: rotate(45deg);\n}\n.setup-finish-page .sf-card p{\n  font-size: .96rem;\n  font-weight: 300;\n  color: #C3C9D8;\n}\n\n\n.setup-finish-page .sf-closing{\n  text-align: center;\n  max-width: 54ch;\n  margin: clamp(3rem, 7vw, 5rem) auto 0;\n}\n.setup-finish-page .sf-seal{\n  width: 54px; height: 54px;\n  margin: 0 auto 1.4rem;\n  display: block;\n  opacity: .9;\n}\n.setup-finish-page .sf-closing h2{\n  font-size: clamp(1.5rem, 3.4vw, 2rem);\n  color: var(--sf-gold);\n  margin-bottom: 1rem;\n}\n.setup-finish-page .sf-closing p{\n  font-weight: 300;\n  color: #C3C9D8;\n  text-wrap: pretty;\n}\n.setup-finish-page .sf-sign{\n  font-family: var(--sf-mono);\n  font-size: .72rem;\n  letter-spacing: .2em;\n  text-transform: uppercase;\n  color: var(--sf-muted);\n  margin-top: 1.8rem;\n}\n\n\n@keyframes sf-draw{ to{ stroke-dashoffset: 0; } }\n@keyframes sf-fade{ to{ opacity: 1; } }\n@keyframes sf-rise{\n  from{ opacity: 0; transform: translateY(14px); }\n  to{ opacity: 1; transform: none; }\n}\n\n.setup-finish-page [data-sf-in]{\n  opacity: 0;\n  animation: sf-rise .7s cubic-bezier(.22,1,.36,1) forwards;\n  animation-delay: calc(var(--i, 0) * 70ms + 550ms);\n}\n\n@media (prefers-reduced-motion: reduce){\n  .setup-finish-page [data-sf-in],\n  .setup-finish-page .sf-crest .sf-crest-outline,\n  .setup-finish-page .sf-crest .sf-crest-fill,\n  .setup-finish-page .sf-crest .sf-crest-mark{\n    animation: none !important;\n    opacity: 1 !important;\n    stroke-dashoffset: 0 !important;\n    transform: none !important;\n  }\n  .setup-finish-page .sf-btn:hover,\n  .setup-finish-page .sf-card:hover{ transform: none; }\n}\n</style>\n</head>\n<body style="margin:0;background:#0D1220;">\n\n\n<div class="setup-finish-page">\n  <div class="sf-shell">\n\n    \n    <header class="sf-hero">\n\n      <svg class="sf-crest" viewBox="0 0 100 118" aria-hidden="true">\n        <defs>\n          <clipPath id="sfShield">\n            <path d="M50 4 L92 18 V60 C92 88 72 104 50 114 C28 104 8 88 8 60 V18 Z"/>\n          </clipPath>\n        </defs>\n        <g class="sf-crest-fill" clip-path="url(#sfShield)">\n          <rect x="0"  y="0" width="34" height="118" fill="#C0453F" opacity=".55"/>\n          <rect x="33" y="0" width="34" height="118" fill="#4E8AC4" opacity=".55"/>\n          <rect x="66" y="0" width="34" height="118" fill="#47946A" opacity=".55"/>\n        </g>\n        <path class="sf-crest-outline"\n              d="M50 4 L92 18 V60 C92 88 72 104 50 114 C28 104 8 88 8 60 V18 Z"\n              fill="none" stroke="#D6B04A" stroke-width="2.5"\n              stroke-linejoin="round"/>\n        <g class="sf-crest-mark" fill="none" stroke="#F2DFA6" stroke-width="2.2"\n           stroke-linecap="round">\n          <path d="M50 34 V80"/>\n          <path d="M34 50 H66"/>\n          <path d="M50 34 L40 24 M50 34 L60 24"/>\n        </g>\n      </svg>\n\n      <p class="sf-eyebrow" data-sf-in style="--i:0">\n        Installation complete <strong>:)</strong>\n      </p>\n\n      <h1 class="sf-title" data-sf-in style="--i:1">\n        The gates <em>are open</em>\n      </h1>\n\n      <p class="sf-lede" data-sf-in style="--i:2">\n        Your DAoC CMS is installed and running. Two things are still missing\n        before you make the shard public.\n      </p>\n\n      <div class="sf-actions" data-sf-in style="--i:3">\n        <a class="sf-btn sf-btn--primary" href="/admin">\n          To Administration\n          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">\n            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8"\n                  stroke-linecap="round" stroke-linejoin="round"/>\n          </svg>\n        </a>\n      </div>\n    </header>\n\n    <div class="sf-battlement" data-sf-in style="--i:4"></div>\n\n    \n    <section class="sf-board">\n\n      <div data-sf-in style="--i:5">\n        <div class="sf-board-head">\n          <h2>Configured</h2>\n          <span class="sf-count">4 / 4</span>\n        </div>\n\n        <ul class="sf-list">\n          <li class="sf-check">\n            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">\n              <circle cx="10" cy="10" r="9" stroke="#47946A" stroke-width="1.4" opacity=".55"/>\n              <path d="M6 10.4l2.6 2.6L14.2 7.4" stroke="#47946A" stroke-width="1.9"\n                    stroke-linecap="round" stroke-linejoin="round"/>\n            </svg>\n            <span>\n              <b>Database connected</b>\n              <small>Tables created, schema up to date</small>\n            </span>\n          </li>\n          <li class="sf-check">\n            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">\n              <circle cx="10" cy="10" r="9" stroke="#47946A" stroke-width="1.4" opacity=".55"/>\n              <path d="M6 10.4l2.6 2.6L14.2 7.4" stroke="#47946A" stroke-width="1.9"\n                    stroke-linecap="round" stroke-linejoin="round"/>\n            </svg>\n            <span>\n              <b>Security keys generated</b>\n              <small>Sessions and cookies signed</small>\n            </span>\n          </li>\n          <li class="sf-check">\n            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">\n              <circle cx="10" cy="10" r="9" stroke="#47946A" stroke-width="1.4" opacity=".55"/>\n              <path d="M6 10.4l2.6 2.6L14.2 7.4" stroke="#47946A" stroke-width="1.9"\n                    stroke-linecap="round" stroke-linejoin="round"/>\n            </svg>\n            <span>\n              <b>Administrator account created</b>\n              <small>Full privileges in the control panel</small>\n            </span>\n          </li>\n          <li class="sf-check">\n            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">\n              <circle cx="10" cy="10" r="9" stroke="#47946A" stroke-width="1.4" opacity=".55"/>\n              <path d="M6 10.4l2.6 2.6L14.2 7.4" stroke="#47946A" stroke-width="1.9"\n                    stroke-linecap="round" stroke-linejoin="round"/>\n            </svg>\n            <span>\n              <b>Write permissions verified</b>\n              <small>Cache and upload directories ready</small>\n            </span>\n          </li>\n        </ul>\n      </div>\n\n      <div data-sf-in style="--i:6">\n        <div class="sf-board-head">\n          <h2>Recommend Next Steps</h2>\n          <span class="sf-count">2 tasks</span>\n        </div>\n\n        <div class="sf-todo">\n          <h3>Remove installation directory</h3>\n          <p>\n            As long as the folder is accessible, the setup can be triggered\n            again. Delete it from the server now.\n          </p>\n          <code class="sf-path">/setup</code>\n        </div>\n\n        <div class="sf-todo">\n          <h3>Configure mail delivery</h3>\n          <p>\n            Without Resend or SMTP access, your players won\'t receive confirmation\n            and password emails.\n          </p>\n        </div>\n      </div>\n\n    </section>\n\n    <div class="sf-battlement" data-sf-in style="--i:7"></div>\n\n    \n    <section class="sf-realms">\n      <h2 class="sf-section-title" data-sf-in style="--i:8">Where to go next</h2>\n      <p class="sf-section-sub" data-sf-in style="--i:9">\n        Three paths, three realms. Start top left and work your way to the right.\n      </p>\n\n      <div class="sf-grid">\n\n        <article class="sf-card sf-card--albion" data-sf-in style="--i:10">\n          <p class="sf-realm-tag">=D</p>\n          <h3>First steps</h3>\n          <ul>\n            <li>Log in with the administrator account.</li>\n            <li>Set shard name, language, and timezone.</li>\n            <li>Populate homepage and menu with custom content.</li>\n          </ul>\n          <a class="sf-btn sf-btn--card" href="acp.php">Open settings</a>\n        </article>\n\n        <article class="sf-card sf-card--midgard" data-sf-in style="--i:11">\n          <p class="sf-realm-tag">(:</p>\n          <h3>Secure operations</h3>\n          <ul>\n            <li>Set up automatic backups for database and files.</li>\n            <li>Keep updates enabled and apply them regularly.</li>\n            <li>Check the error log after the first day of play.</li>\n          </ul>\n        </article>\n\n        <article class="sf-card sf-card--hibernia" data-sf-in style="--i:12">\n          <p class="sf-realm-tag">:)</p>\n          <h3>Help &amp; Community</h3>\n          <p>\n            Manual, guides, support resources, and a direct line to other\n            shard operators.\n          </p>\n          <a class="sf-btn sf-btn--card"\n             href="https://github.com/Darku11/daoc_cms"\n             target="_blank" rel="noopener">Open documentation</a>\n        </article>\n\n      </div>\n    </section>\n\n    \n    <section class="sf-closing" data-sf-in style="--i:13">\n      <svg class="sf-seal" viewBox="0 0 60 60" aria-hidden="true">\n        <circle cx="30" cy="30" r="27" fill="none" stroke="#D6B04A" stroke-width="1.2" opacity=".45"/>\n        <circle cx="30" cy="30" r="22" fill="none" stroke="#D6B04A" stroke-width="1.8" opacity=".8"/>\n        <path d="M30 19 L34 27 L43 28 L36.5 34 L38 43 L30 38.5 L22 43 L23.5 34 L17 28 L26 27 Z"\n              fill="#D6B04A" opacity=".85"/>\n      </svg>\n\n      <h2>Good luck with your shard</h2>\n      <p>\n        Thank you for choosing the DAoC CMS. From here on out, the site is yours\n        — and somewhere out there, the first players are already waiting for the\n        frontiers to open.\n      </p>\n      <p class="sf-sign">DAoC CMS · Installation complete</p>\n    </section>\n\n  </div>\n</div>\n\n\n</body>\n</html>', 'published', NULL, 'none', 0, NULL, 'en', 'home', NULL, NULL, 0, '', '', NULL),
+	('home', 'You are all set!', '<!--
+DAoC CMS compact post-installation welcome block
+Scoped CSS only: safe to embed inside an existing CMS content page.
+-->
+
+<style>
+.daocsw{
+    --daocsw-gold:#c7a04a;
+    --daocsw-gold-soft:#dfc87e;
+    --daocsw-line:#2a251a;
+    --daocsw-panel:#0b0b0d;
+    --daocsw-text:#ddd9d1;
+    --daocsw-muted:#918d86;
+    --daocsw-green:#65c884;
+
+    width:min(880px,100%);
+    margin:0 auto;
+    padding:14px 0 8px;
+    color:var(--daocsw-text);
+    font-family:inherit;
+    box-sizing:border-box;
+}
+
+.daocsw *,
+.daocsw *::before,
+.daocsw *::after{
+    box-sizing:border-box;
+}
+
+.daocsw__card{
+    border:1px solid var(--daocsw-line);
+    border-top:2px solid var(--daocsw-gold);
+    background:rgba(11,11,13,.88);
+}
+
+.daocsw__main{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:28px;
+    align-items:center;
+    padding:28px 30px;
+}
+
+.daocsw__eyebrow{
+    margin:0 0 9px;
+    color:var(--daocsw-gold);
+    font-size:.68rem;
+    font-weight:700;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+}
+
+.daocsw__title{
+    margin:0;
+    color:var(--daocsw-text);
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:clamp(1.65rem,3vw,2.35rem);
+    line-height:1.08;
+    font-weight:400;
+    letter-spacing:.02em;
+}
+
+.daocsw__title strong{
+    color:var(--daocsw-gold-soft);
+    font-weight:400;
+}
+
+.daocsw__lead{
+    margin:12px 0 0;
+    max-width:630px;
+    color:var(--daocsw-muted);
+    font-size:.9rem;
+    line-height:1.62;
+}
+
+.daocsw__status{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    white-space:nowrap;
+    color:#bdb8ae;
+    font-size:.72rem;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+}
+
+.daocsw__status::before{
+    content:"✓";
+    width:28px;
+    height:28px;
+    display:grid;
+    place-items:center;
+    border:1px solid #31563e;
+    background:#0d1a12;
+    color:var(--daocsw-green);
+    font-size:.95rem;
+}
+
+.daocsw__next{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    border-top:1px solid var(--daocsw-line);
+}
+
+.daocsw__item{
+    padding:18px 24px;
+    color:var(--daocsw-muted);
+    font-size:.8rem;
+    line-height:1.55;
+}
+
+.daocsw__item + .daocsw__item{
+    border-left:1px solid var(--daocsw-line);
+}
+
+.daocsw__item b{
+    display:block;
+    margin-bottom:4px;
+    color:var(--daocsw-gold-soft);
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:.92rem;
+    font-weight:400;
+}
+
+.daocsw__actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    padding:18px 24px;
+    border-top:1px solid var(--daocsw-line);
+}
+
+.daocsw__button{
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    min-height:40px !important;
+    padding:0 16px !important;
+    border:1px solid #66501f !important;
+    background:#0c0b09 !important;
+    color:var(--daocsw-gold-soft) !important;
+    opacity:1 !important;
+    text-shadow:none !important;
+    text-decoration:none !important;
+    font-size:.71rem !important;
+    font-weight:700 !important;
+    letter-spacing:.11em !important;
+    line-height:1 !important;
+    text-transform:uppercase !important;
+}
+
+.daocsw__button:hover{
+    border-color:var(--daocsw-gold) !important;
+    background:#121008 !important;
+    color:#f3db94 !important;
+}
+
+.daocsw__button--primary{
+    background:var(--daocsw-gold) !important;
+    border-color:var(--daocsw-gold) !important;
+    color:#0a0906 !important;
+}
+
+.daocsw__button--primary:hover{
+    background:var(--daocsw-gold-soft) !important;
+    border-color:var(--daocsw-gold-soft) !important;
+    color:#090805 !important;
+}
+
+.daocsw__docs{
+    margin-left:auto;
+    align-self:center;
+    color:#746f65;
+    font-size:.72rem;
+}
+
+.daocsw__docs a{
+    color:var(--daocsw-gold-soft) !important;
+    text-decoration:none !important;
+}
+
+.daocsw__docs a:hover{
+    text-decoration:underline !important;
+}
+
+@media (max-width:700px){
+    .daocsw__main{
+        grid-template-columns:1fr;
+        gap:18px;
+        padding:24px 20px;
+    }
+
+    .daocsw__next{
+        grid-template-columns:1fr;
+    }
+
+    .daocsw__item + .daocsw__item{
+        border-left:0;
+        border-top:1px solid var(--daocsw-line);
+    }
+
+    .daocsw__actions{
+        padding:16px 20px;
+    }
+
+    .daocsw__docs{
+        width:100%;
+        margin-left:0;
+    }
+}
+</style>
+
+<div class="daocsw">
+    <section class="daocsw__card">
+
+        <div class="daocsw__main">
+            <div>
+                <div class="daocsw__eyebrow">Installation complete</div>
+
+                <h2 class="daocsw__title">
+                    Your <strong>DAoC CMS</strong> is ready.
+                </h2>
+
+                <p class="daocsw__lead">
+                    Setup is complete. Before going public, review the basic CMS settings
+                    and make sure your Dawn of Light connection is configured.
+                </p>
+            </div>
+
+            <div class="daocsw__status">Ready</div>
+        </div>
+
+        <div class="daocsw__next">
+            <div class="daocsw__item">
+                <b>1. General Settings</b>
+                Site identity, language and enabled modules.
+            </div>
+
+            <div class="daocsw__item">
+                <b>2. DOL Integration</b>
+                Verify the database connection before using game-linked tools.
+            </div>
+        </div>
+
+        <div class="daocsw__actions">
+            <a class="daocsw__button daocsw__button--primary" href="acp.php">
+                Open Control Panel
+            </a>
+
+            <div class="daocsw__docs">
+                Need help?
+                <a href="https://aldhran-server.eu/index.php?p=spike">Open documentation</a>
+            </div>
+        </div>
+
+    </section>
+</div>', 'published', NULL, 'none', 0, NULL, 'en', 'home', NULL, NULL, 0, '', '', NULL),
 	('privacy', 'Privacy', '<ul><li><span>No Third Parties: All fonts, icons, and scripts are hosted locally. No data is transmitted to Google, Cloudflare, or other U.S.-based corporations.</span></li><li>Server Logs: IP addresses are collected for security purposes but are anonymized before being stored in the database.</li><li>Cookies: The system uses only technically necessary session cookies (to maintain user login sessions and provide CSRF protection).</li><li>Users can download their information or delete their accounts at any time</li><li>User data is retained until the account is deleted.</li><li>User related logs are automatically deleted every 30 days</li></ul>', 'published', NULL, 'none', 0, NULL, 'en', 'privacy', NULL, NULL, 0, '', '', NULL);
 
 CREATE TABLE IF NOT EXISTS `pages_history` (
