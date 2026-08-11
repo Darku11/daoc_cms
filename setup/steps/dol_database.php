@@ -35,7 +35,8 @@ $dbName = $_SESSION['setup_dol']['name']   ?? '';
 $user   = $_SESSION['setup_dol']['user']   ?? $_SESSION['setup_db']['user'] ?? '';
 $pass   = $_SESSION['setup_dol']['pass']   ?? $_SESSION['setup_db']['pass'] ?? '';
 $action = $_SESSION['setup_dol']['action'] ?? 'existing';
-$core   = $_SESSION['setup_dol']['core']   ?? 'opendaoc';
+$savedCore = strtolower(trim((string)($_SESSION['setup_dol']['core'] ?? '')));
+$core = in_array($savedCore, ['opendaoc', 'dol'], true) ? $savedCore : '';
 
 $publicSqlFiles = [
     'opendaoc' => 'opendaoc_public.sql.gz',
@@ -74,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
         $user   = trim($_POST['dol_user'] ?? '');
         $pass   = $_POST['dol_pass'] ?? '';
         $action = $_POST['dol_action'] ?? 'existing';
-        $core   = strtolower(trim((string)($_POST['game_server_core'] ?? 'opendaoc')));
+        $core   = strtolower(trim((string)($_POST['game_server_core'] ?? '')));
         $publicSql = $publicSqlMeta[$core] ?? [
             'file'   => '',
             'path'   => null,
@@ -86,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
         $confirmed   = isset($_POST['dol_confirm']);
 
         if (!in_array($core, ['opendaoc', 'dol'], true)) {
-            $error = 'Pick a supported game server core.';
+            $error = 'Choose OpenDAoC or Dawn of Light before continuing.';
         } elseif ($host === '' || $dbName === '' || $user === '') {
             $error = 'Host, database name, and username are required.';
         } elseif (!in_array($action, ['public', 'existing', 'upload'], true)) {
@@ -188,6 +189,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
         }
     }
 }
+
+// Without JavaScript, keep the bundled-import option selectable until the
+// submitted core determines which package must be present.
+$publicChoiceEnabled = $core === '' || $publicSql['exists'];
 ?>
 
 <h3 class="step-title"><i class="fas fa-dungeon"></i>The Realm Gate</h3>
@@ -259,16 +264,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
     <form method="POST" action="index.php?step=dol_database" enctype="multipart/form-data" id="dolForm">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($security->generateToken()) ?>">
 
-        <p class="act-slug">Connection</p>
+        <p class="act-slug">Game server core</p>
 
-        <div class="field">
-            <label class="form-label" for="game_server_core">Game server core</label>
-            <select class="form-select" id="game_server_core" name="game_server_core">
-                <option value="opendaoc" <?= $core === 'opendaoc' ? 'selected' : '' ?>>OpenDAoC</option>
-                <option value="dol" <?= $core === 'dol' ? 'selected' : '' ?>>Dawn of Light (legacy)</option>
-            </select>
-            <span class="field-hint">OpenDAoC is the primary target for RC2. Existing DOL installations remain supported.</span>
-        </div>
+        <fieldset class="field">
+            <legend class="form-label">Which server core will this CMS use?</legend>
+            <div class="choices" id="coreChoices">
+                <label class="choice<?= $core === 'opendaoc' ? ' is-picked' : '' ?>">
+                    <input type="radio" name="game_server_core" value="opendaoc"
+                           <?= $core === 'opendaoc' ? 'checked' : '' ?> required>
+                    <span class="choice-mark" aria-hidden="true"></span>
+                    <span class="choice-body">
+                        <b>OpenDAoC</b>
+                        <span>Use the OpenDAoC database structure and bundled OpenDAoC world database.</span>
+                    </span>
+                </label>
+
+                <label class="choice<?= $core === 'dol' ? ' is-picked' : '' ?>">
+                    <input type="radio" name="game_server_core" value="dol"
+                           <?= $core === 'dol' ? 'checked' : '' ?> required>
+                    <span class="choice-mark" aria-hidden="true"></span>
+                    <span class="choice-body">
+                        <b>Dawn of Light</b>
+                        <span>Use the legacy DOL database structure and bundled DOL world database.</span>
+                    </span>
+                </label>
+            </div>
+            <span class="field-hint">Required. The setup does not select a server core automatically.</span>
+        </fieldset>
+
+        <p class="act-slug" style="margin-top: 34px;">Connection</p>
 
         <div class="field-grid">
             <div class="field field--wide">
@@ -319,15 +343,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
                 </span>
             </label>
 
-            <label class="choice<?= $action === 'public' ? ' is-picked' : '' ?><?= $publicSql['exists'] ? '' : ' is-disabled' ?>" id="dolPublicChoice">
+            <label class="choice<?= $action === 'public' ? ' is-picked' : '' ?><?= $publicChoiceEnabled ? '' : ' is-disabled' ?>" id="dolPublicChoice">
                 <input type="radio" name="dol_action" value="public"
-                       <?= $action === 'public' ? 'checked' : '' ?> <?= $publicSql['exists'] ? '' : 'disabled' ?>>
+                       <?= $action === 'public' ? 'checked' : '' ?> <?= $publicChoiceEnabled ? '' : 'disabled' ?>>
                 <span class="choice-mark" aria-hidden="true"></span>
                 <span class="choice-body">
-                    <b id="dolPublicTitle">Install the bundled <?= $core === 'opendaoc' ? 'OpenDAoC' : 'DOL' ?> database</b>
-                    <span id="dolPublicDescription"><?= $publicSql['exists']
-                        ? 'Imports ' . htmlspecialchars((string) $publicSql['file']) . ' (' . htmlspecialchars((string) $publicSql['size']) . '). Use this for a brand new ' . ($core === 'opendaoc' ? 'OpenDAoC' : 'legacy DOL') . ' shard.'
-                        : 'Unavailable — sql/' . htmlspecialchars((string) $publicSql['file']) . ' is not in this setup package.' ?></span>
+                    <b id="dolPublicTitle"><?= $core === ''
+                        ? 'Choose a game server core first'
+                        : 'Install the bundled ' . ($core === 'opendaoc' ? 'OpenDAoC' : 'DOL') . ' database' ?></b>
+                    <span id="dolPublicDescription"><?= $core === ''
+                        ? 'Choose OpenDAoC or Dawn of Light before selecting a bundled database.'
+                        : ($publicSql['exists']
+                            ? 'Imports ' . htmlspecialchars((string) $publicSql['file']) . ' (' . htmlspecialchars((string) $publicSql['size']) . '). Use this for a brand new ' . ($core === 'opendaoc' ? 'OpenDAoC' : 'legacy DOL') . ' shard.'
+                            : 'Unavailable — sql/' . htmlspecialchars((string) $publicSql['file']) . ' is not in this setup package.') ?></span>
                     <span class="choice-tag choice-tag--danger">Requires an empty database</span>
                 </span>
             </label>
@@ -381,7 +409,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
         var label   = document.getElementById('dolSubmitLabel');
         var dbField = document.getElementById('dol_name');
         var dbName  = document.getElementById('dangerDb');
-        var core    = document.getElementById('game_server_core');
+        var coreChoices = document.querySelectorAll('#coreChoices .choice');
+        var coreRadios = document.querySelectorAll('#coreChoices input[name="game_server_core"]');
         var publicRadio = document.querySelector('#dolChoices input[value="public"]');
         var publicChoice = document.getElementById('dolPublicChoice');
         var publicTitle = document.getElementById('dolPublicTitle');
@@ -395,24 +424,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
             $publicSqlMeta
         ), JSON_UNESCAPED_SLASHES) ?>;
 
-        function syncCore() {
-            if (!core || !publicRadio) return;
+        function selectedCore() {
+            var picked = document.querySelector('#coreChoices input[name="game_server_core"]:checked');
+            return picked ? picked.value : '';
+        }
 
-            var bundle = publicSql[core.value] || { file: '', available: false, size: null };
-            var canUsePublic = bundle.available === true;
+        function syncCore() {
+            if (!publicRadio) return;
+
+            var coreValue = selectedCore();
+            var bundle = publicSql[coreValue] || { file: '', available: false, size: null };
+            var canUsePublic = coreValue !== '' && bundle.available === true;
             publicRadio.disabled = !canUsePublic;
             if (publicChoice) publicChoice.classList.toggle('is-disabled', !canUsePublic);
 
-            var coreName = core.value === 'opendaoc' ? 'OpenDAoC' : 'DOL';
-            var shardName = core.value === 'opendaoc' ? 'OpenDAoC' : 'legacy DOL';
+            coreChoices.forEach(function (choice) {
+                var radio = choice.querySelector('input[name="game_server_core"]');
+                choice.classList.toggle('is-picked', radio !== null && radio.matches(':checked'));
+            });
+
+            var coreName = coreValue === 'opendaoc' ? 'OpenDAoC' : 'DOL';
+            var shardName = coreValue === 'opendaoc' ? 'OpenDAoC' : 'legacy DOL';
 
             if (publicTitle) {
-                publicTitle.textContent = 'Install the bundled ' + coreName + ' database';
+                publicTitle.textContent = coreValue === ''
+                    ? 'Choose a game server core first'
+                    : 'Install the bundled ' + coreName + ' database';
             }
             if (publicDescription) {
-                publicDescription.textContent = canUsePublic
-                    ? 'Imports ' + bundle.file + ' (' + bundle.size + '). Use this for a brand new ' + shardName + ' shard.'
-                    : 'Unavailable — sql/' + bundle.file + ' is not in this setup package.';
+                publicDescription.textContent = coreValue === ''
+                    ? 'Choose OpenDAoC or Dawn of Light before selecting a bundled database.'
+                    : (canUsePublic
+                        ? 'Imports ' + bundle.file + ' (' + bundle.size + '). Use this for a brand new ' + shardName + ' shard.'
+                        : 'Unavailable — sql/' + bundle.file + ' is not in this setup package.');
             }
 
             if (!canUsePublic && publicRadio.checked) {
@@ -445,7 +489,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
         }
 
         radios.forEach(function (r) { r.addEventListener('change', sync); });
-        if (core) core.addEventListener('change', function () { syncCore(); sync(); });
+        coreRadios.forEach(function (radio) {
+            radio.addEventListener('change', function () { syncCore(); sync(); });
+        });
         if (dbField) dbField.addEventListener('input', syncName);
 
         syncCore();

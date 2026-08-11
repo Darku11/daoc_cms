@@ -9,6 +9,12 @@ use DAoCCMS\Setup\Britty;
 
 $root     = realpath(__DIR__ . '/../../');
 $lockFile = $root . '/install.lock';
+$serverCore = $_SESSION['setup_dol']['core'] ?? '';
+$serverCoreLabel = match ($serverCore) {
+    'opendaoc' => 'OpenDAoC',
+    'dol'      => 'Dawn of Light (legacy)',
+    default    => 'Not selected',
+};
 
 // Read the values once more before clearing the session.
 $summary = [
@@ -17,7 +23,7 @@ $summary = [
     'Address'       => $_SESSION['setup_config']['base_url'] ?? null,
     'CMS database'  => $_SESSION['setup_db']['name'] ?? null,
     'Game database' => $_SESSION['setup_dol']['name'] ?? null,
-    'Server core'   => (($_SESSION['setup_dol']['core'] ?? 'opendaoc') === 'opendaoc') ? 'OpenDAoC' : 'Dawn of Light (legacy)',
+    'Server core'   => $serverCoreLabel,
     'Administrator' => $_SESSION['setup_admin']['username'] ?? null,
 ];
 $summary = array_filter($summary, fn ($v) => $v !== null && $v !== '');
@@ -38,7 +44,7 @@ $backupLines = [
     'URL:             ' . ($_SESSION['setup_config']['base_url']    ?? ''),
     'CMS database:    ' . ($_SESSION['setup_db']['name']  ?? ''),
     'Game database:   ' . ($_SESSION['setup_dol']['name'] ?? ''),
-    'Server core:     ' . (($_SESSION['setup_dol']['core'] ?? 'opendaoc') === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light (legacy)'),
+    'Server core:     ' . $serverCoreLabel,
     'Administrator:   ' . ($_SESSION['setup_admin']['username'] ?? ''),
     str_repeat('-', 40),
     'PASSWORD_PEPPER=' . ($_SESSION['setup_crypto']['pepper']  ?? ''),

@@ -55,20 +55,25 @@ class Runner
     /**
      * Verify that all required data from previous steps exists in the session.
      *
-     * @return array{db:array,cms:array,crypto:array,admin:array}
+     * @return array{db:array,game:array,cms:array,crypto:array,admin:array}
      */
     public static function session(): array
     {
         $db     = $_SESSION['setup_db']     ?? [];
+        $game   = $_SESSION['setup_dol']    ?? [];
         $cms    = $_SESSION['setup_config'] ?? [];
         $crypto = $_SESSION['setup_crypto'] ?? [];
         $admin  = $_SESSION['setup_admin']  ?? [];
 
-        if (empty($db) || empty($cms) || empty($crypto) || empty($admin)) {
+        if (empty($db) || empty($game) || empty($cms) || empty($crypto) || empty($admin)) {
             throw new RuntimeException('Session data is missing. Please restart the setup.');
         }
 
-        return ['db' => $db, 'cms' => $cms, 'crypto' => $crypto, 'admin' => $admin];
+        if (!in_array(($game['core'] ?? ''), ['opendaoc', 'dol'], true)) {
+            throw new RuntimeException('No game server core was selected. Return to The Realm Gate and choose OpenDAoC or Dawn of Light.');
+        }
+
+        return ['db' => $db, 'game' => $game, 'cms' => $cms, 'crypto' => $crypto, 'admin' => $admin];
     }
 
     /** Recreate the PDO connection from session data. */
@@ -382,9 +387,7 @@ class Runner
             'cms_name'          => $s['cms']['cms_name'],
             'language'          => $s['cms']['language'],
             'timezone'          => $s['cms']['timezone'],
-            'game_server_core'  => in_array(($_SESSION['setup_dol']['core'] ?? ''), ['opendaoc', 'dol'], true)
-                ? $_SESSION['setup_dol']['core']
-                : 'opendaoc',
+            'game_server_core'  => $s['game']['core'],
             'discord_bot_token' => $s['cms']['discord_token'],
             'discord_guild_id'  => $s['cms']['discord_guild'],
             'settings_version'  => (string) time(),

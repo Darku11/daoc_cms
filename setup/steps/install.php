@@ -17,6 +17,13 @@ $token    = $security->generateToken();
 
 $error = '';
 
+$serverCore = $_SESSION['setup_dol']['core'] ?? '';
+$serverCoreLabel = match ($serverCore) {
+    'opendaoc' => 'OpenDAoC',
+    'dol'      => 'Dawn of Light (legacy)',
+    default    => 'Not selected',
+};
+
 // If the install already completed once in this session (e.g. the browser's
 // Back button after a successful run), show the finished state instead of
 // letting the phases execute a second time — schema() would drop and rebuild
@@ -50,7 +57,7 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['execute_
 $summary = [
     'CMS database'  => $_SESSION['setup_db']['name']       ?? '—',
     'Game database' => $_SESSION['setup_dol']['name']      ?? '—',
-    'Server core'   => (($_SESSION['setup_dol']['core'] ?? 'opendaoc') === 'opendaoc') ? 'OpenDAoC' : 'Dawn of Light (legacy)',
+    'Server core'   => $serverCoreLabel,
     'Site URL'      => $_SESSION['setup_config']['base_url'] ?? '—',
     'Administrator' => $_SESSION['setup_admin']['username'] ?? '—',
 ];
