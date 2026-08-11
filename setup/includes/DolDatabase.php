@@ -27,7 +27,28 @@ class DolDatabase
 
     public static function verifyExistingStructure(PDO $pdo): array
     {
-        $requiredTables = ['account', 'dolcharacters'];
+        return self::verifyTables($pdo, ['account', 'dolcharacters']);
+    }
+
+    public static function verifyWorldStructure(PDO $pdo): array
+    {
+        return self::verifyTables($pdo, [
+            'account',
+            'ability',
+            'dolcharacters',
+            'guild',
+            'itemtemplate',
+            'keep',
+            'merchantitem',
+            'mob',
+            'path',
+            'pathpoints',
+            'relic',
+        ]);
+    }
+
+    private static function verifyTables(PDO $pdo, array $requiredTables): array
+    {
         $missing = [];
 
         foreach ($requiredTables as $table) {
@@ -67,9 +88,9 @@ class DolDatabase
     }
 
     /**
-     * Import an SQL file.
+     * Import an SQL file, optionally compressed with gzip.
      *
-     * Failed statements do not stop DOL dump imports because optional
+     * Failed statements do not stop game database imports because optional
      * DROP TABLE IF EXISTS may fail in restricted environments. Unlike before,
      * the failure is returned instead of being written only to the error log.
      *
@@ -84,7 +105,12 @@ class DolDatabase
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $pdo->exec("SET NAMES 'utf8mb4'");
 
-        $handle = fopen($filePath, 'r');
+        $gzip = str_ends_with(strtolower($filePath), '.gz');
+        if ($gzip && !function_exists('gzopen')) {
+            throw new RuntimeException('The bundled database requires the PHP zlib extension.');
+        }
+
+        $handle = $gzip ? gzopen($filePath, 'rb') : fopen($filePath, 'r');
         if ($handle === false) {
             throw new RuntimeException("Could not open {$filePath} for reading.");
         }
@@ -97,7 +123,7 @@ class DolDatabase
         $errors     = [];
 
         try {
-            while (($line = fgets($handle)) !== false) {
+            while (($line = $gzip ? gzgets($handle) : fgets($handle)) !== false) {
                 $trimmed = trim($line);
 
                 // Comments only end the statement outside of an open quote —
@@ -131,21 +157,34 @@ class DolDatabase
                 }
 
                 if (!$inString && substr(trim($query), -1) === ';') {
+                    $statement = trim($query);
+
+                    // Always stay inside the database selected in the setup.
+                    // Dumps may contain their original schema name.
+                    if (preg_match('/^(?:(?:CREATE|DROP)\s+(?:DATABASE|SCHEMA)\b|USE\s+)/i', $statement) === 1) {
+                        $query = '';
+                        continue;
+                    }
+
                     try {
-                        $pdo->exec($query);
+                        $pdo->exec($statement);
                         $executed++;
                     } catch (PDOException $e) {
                         $failed++;
                         if (count($errors) < 5) {
                             $errors[] = $e->getMessage();
                         }
-                        error_log('DOL DB import: ' . $e->getMessage() . ' | ' . substr($query, 0, 120));
+                        error_log('Game DB import: ' . $e->getMessage() . ' | ' . substr($statement, 0, 120));
                     }
                     $query = '';
                 }
             }
         } finally {
-            fclose($handle);
+            if ($gzip) {
+                gzclose($handle);
+            } else {
+                fclose($handle);
+            }
             $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
         }
 

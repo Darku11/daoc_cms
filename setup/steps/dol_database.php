@@ -37,9 +37,31 @@ $pass   = $_SESSION['setup_dol']['pass']   ?? $_SESSION['setup_db']['pass'] ?? '
 $action = $_SESSION['setup_dol']['action'] ?? 'existing';
 $core   = $_SESSION['setup_dol']['core']   ?? 'opendaoc';
 
-$publicSqlPath   = realpath(__DIR__ . '/../sql/dol_public.sql');
-$publicSqlExists = $publicSqlPath !== false && is_file($publicSqlPath);
-$publicSqlSize   = $publicSqlExists ? size_format_daoc((int) filesize($publicSqlPath)) : null;
+$publicSqlFiles = [
+    'opendaoc' => 'opendaoc_public.sql.gz',
+    'dol'      => 'dol_public.sql',
+];
+$publicSqlMeta = [];
+
+foreach ($publicSqlFiles as $serverCore => $fileName) {
+    $candidate = __DIR__ . '/../sql/' . $fileName;
+    $path      = realpath($candidate);
+    $exists    = $path !== false && is_file($path);
+
+    $publicSqlMeta[$serverCore] = [
+        'file'   => $fileName,
+        'path'   => $exists ? $path : null,
+        'exists' => $exists,
+        'size'   => $exists ? size_format_daoc((int) filesize($path)) : null,
+    ];
+}
+
+$publicSql = $publicSqlMeta[$core] ?? [
+    'file'   => '',
+    'path'   => null,
+    'exists' => false,
+    'size'   => null,
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
 
@@ -53,6 +75,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
         $pass   = $_POST['dol_pass'] ?? '';
         $action = $_POST['dol_action'] ?? 'existing';
         $core   = strtolower(trim((string)($_POST['game_server_core'] ?? 'opendaoc')));
+        $publicSql = $publicSqlMeta[$core] ?? [
+            'file'   => '',
+            'path'   => null,
+            'exists' => false,
+            'size'   => null,
+        ];
 
         $destructive = in_array($action, ['public', 'upload'], true);
         $confirmed   = isset($_POST['dol_confirm']);
@@ -63,8 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
             $error = 'Host, database name, and username are required.';
         } elseif (!in_array($action, ['public', 'existing', 'upload'], true)) {
             $error = 'Pick one of the three options below.';
-        } elseif ($core === 'opendaoc' && $action === 'public') {
-            $error = 'The bundled public database is for legacy DOL only. Connect an existing OpenDAoC database or upload an OpenDAoC SQL backup.';
+        } elseif ($action === 'public' && !$publicSql['exists']) {
+            $missingFile = $publicSql['file'] !== '' ? 'sql/' . $publicSql['file'] : 'The selected database dump';
+            $error = $missingFile . ' is missing from the setup package. Re-download the release or use one of the other options.';
         } elseif ($destructive && !$confirmed) {
             $error = 'This option writes over the target database. Tick the confirmation box to continue.';
         } else {
@@ -93,13 +122,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
                         }
 
                     } elseif ($action === 'public') {
-                        if (!$publicSqlExists) {
-                            $error = 'sql/dol_public.sql is missing from the setup package. '
-                                   . 'Either re-download the release or use one of the other two options.';
+                        if (!$publicSql['exists'] || $publicSql['path'] === null) {
+                            $error = 'The bundled database is missing from the setup package. '
+                                   . 'Re-download the release or use one of the other two options.';
+                            $valid = false;
+                        } elseif (DolDatabase::countTables($pdo) > 0) {
+                            $error = 'The bundled database can only be installed into an empty target database. '
+                                   . 'Choose a new empty database or use "Leave it alone" for an existing shard.';
                             $valid = false;
                         } else {
-                            $stats  = DolDatabase::importSqlFile($pdo, $publicSqlPath);
-                            $report = ['mode' => 'public', 'source' => 'dol_public.sql'] + $stats;
+                            $stats  = DolDatabase::importSqlFile($pdo, $publicSql['path']);
+                            $verify = DolDatabase::verifyWorldStructure($pdo);
+
+                            if (!$verify['valid']) {
+                                $error = $verify['message'] . ' — the bundled database import is incomplete.';
+                                $valid = false;
+                            } else {
+                                $report = ['mode' => 'public', 'source' => $publicSql['file']] + $stats;
+                            }
                         }
 
                     } elseif ($action === 'upload') {
@@ -279,19 +319,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
                 </span>
             </label>
 
-            <label class="choice<?= $action === 'public' ? ' is-picked' : '' ?><?= ($publicSqlExists && $core === 'dol') ? '' : ' is-disabled' ?>" id="dolPublicChoice">
+            <label class="choice<?= $action === 'public' ? ' is-picked' : '' ?><?= $publicSql['exists'] ? '' : ' is-disabled' ?>" id="dolPublicChoice">
                 <input type="radio" name="dol_action" value="public"
-                       <?= $action === 'public' ? 'checked' : '' ?> <?= ($publicSqlExists && $core === 'dol') ? '' : 'disabled' ?>
-                       data-file-available="<?= $publicSqlExists ? '1' : '0' ?>">
+                       <?= $action === 'public' ? 'checked' : '' ?> <?= $publicSql['exists'] ? '' : 'disabled' ?>>
                 <span class="choice-mark" aria-hidden="true"></span>
                 <span class="choice-body">
-                    <b>Install the public database</b>
-                    <span id="dolPublicDescription"><?= $publicSqlExists
-                        ? ($core === 'dol'
-                            ? 'Imports the bundled standard DOL database (' . htmlspecialchars((string) $publicSqlSize) . '). Use this for a brand new legacy DOL shard.'
-                            : 'The bundled public database belongs to legacy DOL. OpenDAoC requires its own database or SQL backup.')
-                        : 'Unavailable — sql/dol_public.sql is not in this setup package.' ?></span>
-                    <span class="choice-tag choice-tag--danger">Writes over existing tables</span>
+                    <b id="dolPublicTitle">Install the bundled <?= $core === 'opendaoc' ? 'OpenDAoC' : 'DOL' ?> database</b>
+                    <span id="dolPublicDescription"><?= $publicSql['exists']
+                        ? 'Imports ' . htmlspecialchars((string) $publicSql['file']) . ' (' . htmlspecialchars((string) $publicSql['size']) . '). Use this for a brand new ' . ($core === 'opendaoc' ? 'OpenDAoC' : 'legacy DOL') . ' shard.'
+                        : 'Unavailable — sql/' . htmlspecialchars((string) $publicSql['file']) . ' is not in this setup package.' ?></span>
+                    <span class="choice-tag choice-tag--danger">Requires an empty database</span>
                 </span>
             </label>
 
@@ -316,9 +353,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
         <div class="danger" id="dangerBox" hidden>
             <p class="danger-title"><i class="fas fa-triangle-exclamation"></i> This will write over data</p>
             <p class="danger-text">
-                Tables in <b id="dangerDb">the target database</b> that also exist in the import file
-                will be dropped and rebuilt. Characters, accounts, and items in those tables are gone.
-                There is no undo from here.
+                The import writes tables and data into <b id="dangerDb">the target database</b>.
+                Existing matching data may be replaced, changed, or cause import conflicts. There is no undo from here.
             </p>
             <label class="confirm">
                 <input type="checkbox" name="dol_confirm" id="dolConfirm">
@@ -348,20 +384,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
         var core    = document.getElementById('game_server_core');
         var publicRadio = document.querySelector('#dolChoices input[value="public"]');
         var publicChoice = document.getElementById('dolPublicChoice');
+        var publicTitle = document.getElementById('dolPublicTitle');
         var publicDescription = document.getElementById('dolPublicDescription');
+        var publicSql = <?= json_encode(array_map(
+            static fn (array $meta): array => [
+                'file'      => $meta['file'],
+                'available' => $meta['exists'],
+                'size'      => $meta['size'],
+            ],
+            $publicSqlMeta
+        ), JSON_UNESCAPED_SLASHES) ?>;
 
         function syncCore() {
             if (!core || !publicRadio) return;
 
-            var fileAvailable = publicRadio.dataset.fileAvailable === '1';
-            var canUsePublic = fileAvailable && core.value === 'dol';
+            var bundle = publicSql[core.value] || { file: '', available: false, size: null };
+            var canUsePublic = bundle.available === true;
             publicRadio.disabled = !canUsePublic;
             if (publicChoice) publicChoice.classList.toggle('is-disabled', !canUsePublic);
 
-            if (publicDescription && fileAvailable) {
+            var coreName = core.value === 'opendaoc' ? 'OpenDAoC' : 'DOL';
+            var shardName = core.value === 'opendaoc' ? 'OpenDAoC' : 'legacy DOL';
+
+            if (publicTitle) {
+                publicTitle.textContent = 'Install the bundled ' + coreName + ' database';
+            }
+            if (publicDescription) {
                 publicDescription.textContent = canUsePublic
-                    ? 'Imports the bundled standard DOL database. Use this for a brand new legacy DOL shard.'
-                    : 'The bundled public database belongs to legacy DOL. OpenDAoC requires its own database or SQL backup.';
+                    ? 'Imports ' + bundle.file + ' (' + bundle.size + '). Use this for a brand new ' + shardName + ' shard.'
+                    : 'Unavailable — sql/' + bundle.file + ' is not in this setup package.';
             }
 
             if (!canUsePublic && publicRadio.checked) {
@@ -384,7 +435,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
             danger.hidden = !destructive;
             if (!destructive && confirm) confirm.checked = false;
 
-            label.textContent = destructive ? 'Import and overwrite' : 'Test the connection';
+            label.textContent = value === 'public'
+                ? 'Install the bundled database'
+                : (value === 'upload' ? 'Import and overwrite' : 'Test the connection');
         }
 
         function syncName() {
@@ -420,7 +473,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
         </a>
     <?php else: ?>
         <button class="btn btn-gold px-4 py-2 disabled" disabled>
-            Connect DOL first <i class="fas fa-lock ms-2"></i>
+            Connect the game database first <i class="fas fa-lock ms-2"></i>
         </button>
     <?php endif; ?>
 </div>
