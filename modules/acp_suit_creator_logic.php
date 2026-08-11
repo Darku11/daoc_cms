@@ -811,6 +811,7 @@ if (isset($_GET['ajax'])) {
             $data['Name']        = $name;
             $data['Level']       = $level;
             $data['Quality']     = $quality;
+            $data['AllowedClasses'] = $data['AllowedClasses'] ?? '';
             $data['Item_Type']   = $data['Item_Type'] ?? $def['item_type'];
             $data['Realm']       = $data['Realm']     ?? $realm;
             if (!isset($data['Object_Type']) && $slotObject) $data['Object_Type'] = $slotObject;
@@ -971,6 +972,10 @@ if (isset($_GET['ajax'])) {
         if ($merchantHasPrice) $insertColumns[] = 'Price';
         $insertColumns[] = 'PageNumber';
         $insertColumns[] = 'SlotPosition';
+        $merchantHasUpdatedAt = in_array('lasttimerowupdated', $merchantColumns, true);
+        $merchantHasObjectId = in_array('merchantitem_id', $merchantColumns, true);
+        if ($merchantHasUpdatedAt) $insertColumns[] = 'LastTimeRowUpdated';
+        if ($merchantHasObjectId) $insertColumns[] = 'MerchantItem_ID';
         $insertSql = 'INSERT INTO merchantitem (`' . implode('`,`', $insertColumns)
             . '`) VALUES (' . implode(',', array_fill(0, count($insertColumns), '?')) . ')';
 
@@ -992,6 +997,8 @@ if (isset($_GET['ajax'])) {
                 if ($merchantHasPrice) $values[] = $per;
                 $values[] = $page;
                 $values[] = $pos++;
+                if ($merchantHasUpdatedAt) $values[] = date('Y-m-d H:i:s');
+                if ($merchantHasObjectId) $values[] = daoc_game_object_id();
                 $ins->execute($values);
             }
             $db->commit();

@@ -24,6 +24,16 @@ function daoc_game_server_is_opendaoc(): bool
     return daoc_game_server_core() === 'opendaoc';
 }
 
+/** Generate the string object ID used by DOL/OpenDAoC DataObject tables. */
+function daoc_game_object_id(): string
+{
+    $data = random_bytes(16);
+    $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+    $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+}
+
 /**
  * Character fields shared by current DOL and OpenDAoC databases.
  *

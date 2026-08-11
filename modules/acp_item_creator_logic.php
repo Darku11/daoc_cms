@@ -26,6 +26,15 @@ function ie_utility_cap(int $level): float {
     return round(($level / 50) * 100, 1);
 }
 
+/** Resolve the physical bonus-type column used by the connected schema. */
+function ie_bonus_type_column(PDO $db, int $slot): ?string {
+    $officialName = "Bonus{$slot}Type";
+    if (daoc_game_column_exists($db, 'itemtemplate', $officialName)) return $officialName;
+
+    $legacyName = "BonusType{$slot}";
+    return daoc_game_column_exists($db, 'itemtemplate', $legacyName) ? $legacyName : null;
+}
+
 // ── AI helper: collect bonuses from POST ────────────────────────
 function ie_collect_bonuses_from_post(): array {
     $bonuses = [];
@@ -84,6 +93,12 @@ if (isset($_GET['ajax'])) {
         $stmt = $db->prepare("SELECT * FROM itemtemplate WHERE Id_nb = ? LIMIT 1");
         $stmt->execute([$id]);
         $item = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($item) {
+            for ($i = 1; $i <= 10; $i++) {
+                $typeColumn = ie_bonus_type_column($db, $i);
+                $item["BonusType{$i}"] = $typeColumn === null ? 0 : (int)($item[$typeColumn] ?? 0);
+            }
+        }
         echo json_encode($item ?: ['error' => 'not_found']);
         exit;
     }
@@ -139,8 +154,11 @@ if (isset($_GET['ajax'])) {
             'PackageID'=>trim($_POST['PackageID']??''),
         ];
         for ($i = 1; $i <= 10; $i++) {
-            $fields["Bonus{$i}"]     = (int)($_POST["Bonus{$i}"]     ?? 0);
-            $fields["BonusType{$i}"] = (int)($_POST["BonusType{$i}"] ?? 0);
+            $fields["Bonus{$i}"] = (int)($_POST["Bonus{$i}"] ?? 0);
+            $typeColumn = ie_bonus_type_column($db, $i);
+            if ($typeColumn !== null) {
+                $fields[$typeColumn] = (int)($_POST["BonusType{$i}"] ?? 0);
+            }
         }
         $fields['ExtraBonus']     = (int)($_POST['ExtraBonus']     ?? 0);
         $fields['ExtraBonusType'] = (int)($_POST['ExtraBonusType'] ?? 0);

@@ -903,11 +903,29 @@ if (isset($_GET['action'])) {
             $chance       = max(1, min(100, (int)($_POST['chance'] ?? 10)));
             $count        = max(1,          (int)($_POST['count']  ?? 1));
             if ($mobName === '' || $itemTemplate === '') { echo json_encode(['success'=>false,'error'=>'Required fields empty']); exit; }
-            $db->prepare("INSERT IGNORE INTO mobxloottemplate (MobName,LootTemplateName,DropCount) VALUES (?,?,1)")
-               ->execute([$mobName, $mobName]);
-            $ok = $db->prepare("INSERT INTO loottemplate (TemplateName,ItemTemplateID,Chance,Count) VALUES (?,?,?,?)")
-                     ->execute([$mobName, $itemTemplate, $chance, $count]);
-            echo json_encode(['success'=>$ok,'id'=>$db->lastInsertId()]);
+            $lootId = mobEditorUuid();
+            $db->beginTransaction();
+            try {
+                $relation = $db->prepare("SELECT 1 FROM mobxloottemplate WHERE MobName=? AND LootTemplateName=? LIMIT 1");
+                $relation->execute([$mobName, $mobName]);
+                if (!$relation->fetchColumn()) {
+                    $db->prepare(
+                        "INSERT INTO mobxloottemplate
+                         (MobName,LootTemplateName,DropCount,LastTimeRowUpdated,MobXLootTemplate_ID)
+                         VALUES (?,?,1,NOW(),?)"
+                    )->execute([$mobName, $mobName, mobEditorUuid()]);
+                }
+                $ok = $db->prepare(
+                    "INSERT INTO loottemplate
+                     (TemplateName,ItemTemplateID,Chance,Count,LastTimeRowUpdated,LootTemplate_ID)
+                     VALUES (?,?,?,?,NOW(),?)"
+                )->execute([$mobName, $itemTemplate, $chance, $count, $lootId]);
+                $db->commit();
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) $db->rollBack();
+                throw $e;
+            }
+            echo json_encode(['success'=>$ok,'id'=>$lootId]);
             exit;
         }
 
@@ -1211,14 +1229,14 @@ if (isset($_GET['action'])) {
                 }
 
                 $db->prepare(
-                    "INSERT INTO path (PathID, PathType, RegionID, LastTimeRowUpdated, Path_ID)
-                     VALUES (?, ?, ?, NOW(), ?)"
-                )->execute([$pathId, $pathType, $region, mobEditorUuid()]);
+                    "INSERT INTO path (PathID, PathType, LastTimeRowUpdated, Path_ID)
+                     VALUES (?, ?, NOW(), ?)"
+                )->execute([$pathId, $pathType, mobEditorUuid()]);
 
                 $pointInsert = $db->prepare(
                     "INSERT INTO pathpoints
-                     (PathID, Step, X, Y, Z, MaxSpeed, WaitTime, LastTimeRowUpdated, PathPoints_ID)
-                     VALUES (?, ?, ?, ?, ?, 1000, 0, NOW(), ?)"
+                     (PathID, Step, X, Y, Z, MaxSpeed, WaitTime, TriggerName, LastTimeRowUpdated, PathPoints_ID)
+                     VALUES (?, ?, ?, ?, ?, 1000, 0, '', NOW(), ?)"
                 );
                 foreach ($resolvedPoints as $index => $point) {
                     $pointInsert->execute([

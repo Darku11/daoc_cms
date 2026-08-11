@@ -197,6 +197,80 @@ namespace DOL.GS.Scripts
             object[] args = method.GetParameters().Length == 0 ? null : new object[] { true };
             method.Invoke(player, args);
         }
+
+        // OpenDAoC exposes ForceGainExperience(long), while DOL exposes
+        // GainExperience(eXPSource, long). Resolve the OpenDAoC method first;
+        // the enum fallback then covers current and older DOL-style cores.
+        public static void GrantExperience(GamePlayer player, long amount)
+        {
+            MethodInfo forceMethod = typeof(GamePlayer).GetMethod(
+                "ForceGainExperience",
+                BindingFlags.Public | BindingFlags.Instance,
+                null,
+                new[] { typeof(long) },
+                null);
+            if (forceMethod != null)
+            {
+                forceMethod.Invoke(player, new object[] { amount });
+                return;
+            }
+
+            MethodInfo method = typeof(GamePlayer).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(m => m.Name == "GainExperience")
+                .FirstOrDefault(m =>
+                {
+                    ParameterInfo[] parameters = m.GetParameters();
+                    return parameters.Length == 2
+                        && parameters[0].ParameterType.IsEnum
+                        && parameters[1].ParameterType == typeof(long);
+                });
+
+            if (method == null)
+            {
+                method = typeof(GamePlayer).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(m => m.Name == "GainExperience")
+                    .FirstOrDefault(m =>
+                    {
+                        ParameterInfo[] parameters = m.GetParameters();
+                        return parameters.Length == 3
+                            && parameters[0].ParameterType.IsEnum
+                            && parameters[1].ParameterType == typeof(long)
+                            && parameters[2].ParameterType == typeof(bool);
+                    });
+            }
+
+            if (method == null)
+                throw new MissingMethodException("No compatible GamePlayer.GainExperience overload found.");
+
+            ParameterInfo[] argsInfo = method.GetParameters();
+            object source = Enum.Parse(argsInfo[0].ParameterType, "Other");
+            object[] args = argsInfo.Length == 2
+                ? new object[] { source, amount }
+                : new object[] { source, amount, false };
+            method.Invoke(player, args);
+        }
+
+        // DOL declares eReleaseType inside GamePlayer, while OpenDAoC exposes
+        // it at namespace level. Invoke Release through its actual enum type so
+        // an admin revive preserves the original explicit "Normal" behavior.
+        public static void ReleaseNormally(GamePlayer player)
+        {
+            MethodInfo method = typeof(GamePlayer).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(m => m.Name == "Release")
+                .FirstOrDefault(m =>
+                {
+                    ParameterInfo[] parameters = m.GetParameters();
+                    return parameters.Length == 2
+                        && parameters[0].ParameterType.IsEnum
+                        && parameters[1].ParameterType == typeof(bool);
+                });
+
+            if (method == null)
+                throw new MissingMethodException("No compatible GamePlayer.Release overload found.");
+
+            object normal = Enum.Parse(method.GetParameters()[0].ParameterType, "Normal");
+            method.Invoke(player, new object[] { normal, true });
+        }
     }
 
     public class AldhranBridge
@@ -420,7 +494,9 @@ namespace DOL.GS.Scripts
             {
                 client.Out.SendMessage(reason ?? "You have been kicked from the server.", eChatType.CT_Important, eChatLoc.CL_SystemWindow);
                 client.Player.SaveIntoDatabase();
-                GameServer.Instance.Disconnect(client);
+                // OpenDAoC moved disconnect handling from GameServer to the
+                // client; GameClient.Disconnect() is public on both cores.
+                client.Disconnect();
                 return JsonConvert.SerializeObject(new { ok = true });
             }
             catch (Exception ex)
@@ -543,9 +619,9 @@ namespace DOL.GS.Scripts
                         break;
 
                     case "xp":
-                        // GainExperience(long, ...) — an absolute "gain" relative to 0, since
-                        // there is no direct setter for the total XP standing.
-                        player.GainExperience(GameLiving.eXPSource.Other, value, 0, 0, 0, false, false, false);
+                        // XP is a gain amount; both cores intentionally expose no
+                        // direct setter for the character's total XP standing.
+                        ServerCoreCompat.GrantExperience(player, value);
                         break;
 
                     case "gold":
@@ -710,7 +786,7 @@ namespace DOL.GS.Scripts
                 return JsonConvert.SerializeObject(new { ok = false, error = "No command given." });
 
             string trimmed = commandLine.Trim();
-            if (trimmed.StartsWith("/"))
+            if (trimmed.StartsWith("/") || trimmed.StartsWith("&"))
                 trimmed = trimmed.Substring(1);
 
             string[] pars = trimmed.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -747,11 +823,12 @@ namespace DOL.GS.Scripts
                 if (executorClient == null || executorClient.Player == null)
                     return JsonConvert.SerializeObject(new { ok = false, error = "No suitable executor (online GM/admin) found." });
 
-                var cmdEntry = ServerCoreCompat.GuessCommand("/" + cmdName, (ePrivLevel)executorClient.Account.PrivLevel);
+                string serverCommand = "&" + cmdName;
+                var cmdEntry = ServerCoreCompat.GuessCommand(serverCommand, (ePrivLevel)executorClient.Account.PrivLevel);
                 if (cmdEntry == null)
                     return JsonConvert.SerializeObject(new { ok = false, error = $"Unknown command: {cmdName}" });
 
-                pars[0] = "/" + cmdName;
+                pars[0] = cmdEntry.m_cmd;
 
                 cmdEntry.m_cmdHandler.OnCommand(executorClient, pars);
 
@@ -799,7 +876,7 @@ namespace DOL.GS.Scripts
             try
             {
                 GamePlayer player = client.Player;
-                player.Release(GamePlayer.eReleaseType.Normal, true);
+                ServerCoreCompat.ReleaseNormally(player);
                 return JsonConvert.SerializeObject(new { ok = true });
             }
             catch (Exception ex)
@@ -862,6 +939,8 @@ namespace DOL.GS.Scripts
             try
             {
                 client.Player.IsMuted = on;
+                client.Account.IsMuted = on;
+                GameServer.Database.SaveObject(client.Account);
                 client.Player.Out.SendMessage(
                     on ? "You have been muted by an admin." : "You have been unmuted.",
                     eChatType.CT_Important, eChatLoc.CL_SystemWindow);
