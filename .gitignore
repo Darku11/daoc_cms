@@ -1,0 +1,25 @@
+# System files
+.DS_Store
+Thumbs.db
+
+node_modules/
+
+# Local configuration and environment files
+includes/config.php
+.env
+.env.*
+!.env.example
+
+# Runtime logs
+*.log
+
+# Generated backups
+backups/*
+!backups/.htaccess
+!backups/index.html
+
+# User uploads
+uploads/forum/*
+!uploads/forum/.gitkeep
+assets/img/media/*
+!assets/img/media/.gitkeep

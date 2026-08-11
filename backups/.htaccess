@@ -1,0 +1,2 @@
+# Prevent direct web access to backup archives and database dumps.
+Require all denied
