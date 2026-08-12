@@ -62,10 +62,23 @@ Changes to the database structure should be made carefully.
 
 If your contribution requires new tables, columns, indexes, or other schema changes:
 
-- document the required changes,
-- consider existing installations and upgrades,
+- update the fresh-install schema used by the setup process,
+- add a versioned migration in `migrations/` for existing installations,
+- use the `YYYYMMDDHHMMSS_short_description.php` migration filename format,
 - avoid destructive changes unless absolutely necessary,
-- and ensure fresh installations continue to work correctly.
+- and ensure fresh installations and upgraded installations reach the same schema.
+
+Check migration state with:
+
+```bash
+php migrate.php --status
+```
+
+Apply pending migrations with:
+
+```bash
+php migrate.php
+```
 
 ## Security
 
