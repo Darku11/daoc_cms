@@ -27,6 +27,8 @@ class Runner
         'settings' => 'Saving settings',
     ];
 
+    private const SCHEMA_BASELINE = '20260812000000';
+
     private const RENAMES = [
         'bot_settings'             => 'cms_bot_settings',
         'languages'                => 'cms_languages',
@@ -384,13 +386,14 @@ class Runner
         $pdo = self::connect();
 
         $settings = [
-            'cms_name'          => $s['cms']['cms_name'],
-            'language'          => $s['cms']['language'],
-            'timezone'          => $s['cms']['timezone'],
-            'game_server_core'  => $s['game']['core'],
-            'discord_bot_token' => $s['cms']['discord_token'],
-            'discord_guild_id'  => $s['cms']['discord_guild'],
-            'settings_version'  => (string) time(),
+            'cms_name'           => $s['cms']['cms_name'],
+            'language'           => $s['cms']['language'],
+            'timezone'           => $s['cms']['timezone'],
+            'game_server_core'   => $s['game']['core'],
+            'discord_bot_token'  => $s['cms']['discord_token'],
+            'discord_guild_id'   => $s['cms']['discord_guild'],
+            'settings_version'   => (string) time(),
+            'cms_schema_version' => self::SCHEMA_BASELINE,
         ];
 
         $stmt = $pdo->prepare(

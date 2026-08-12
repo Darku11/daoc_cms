@@ -21,15 +21,28 @@ if (isset($_SESSION['user_id'])) {
     }
 }
 
+$header_priv = (int)($_SESSION['priv_level'] ?? 0);
 $page = $_GET['p'] ?? 'home';
 if (!isset($data) && $page) {
-    $stmt_p = $db->prepare("SELECT title, content, meta_title, meta_description FROM pages WHERE slug = ?");
-    $stmt_p->execute([$page]);
+    if ($header_priv >= 4) {
+        $stmt_p = $db->prepare("SELECT title, content, meta_title, meta_description FROM pages WHERE slug = ?");
+        $stmt_p->execute([$page]);
+    } else {
+        $stmt_p = $db->prepare("
+            SELECT title, content, meta_title, meta_description
+            FROM pages
+            WHERE slug = ?
+              AND status = 'published'
+              AND (published_at IS NULL OR published_at <= NOW())
+              AND min_priv <= ?
+        ");
+        $stmt_p->execute([$page, $header_priv]);
+    }
     $data = $stmt_p->fetch();
 }
 
-$meta_title = !empty($data['meta_title']) 
-    ? h($data['meta_title']) 
+$meta_title = !empty($data['meta_title'])
+    ? h($data['meta_title'])
     : h($data['title'] ?? "DAoC CMS - Chronicles of Atlantis");
 
 if (!empty($data['meta_description'])) {
@@ -51,8 +64,19 @@ if ($page === 'viewthread') {
     if (!empty($_GET['slug'])) {
         $og_thread_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($_GET['slug']));
         try {
-            $s = $db->prepare("SELECT t.id, t.title, p.content FROM spike_threads t JOIN spike_posts p ON p.thread_id=t.id WHERE t.slug=? ORDER BY p.created_at ASC LIMIT 1");
-            $s->execute([$og_thread_slug]);
+            $s = $db->prepare("
+                SELECT t.id, t.title, p.content
+                FROM spike_threads t
+                JOIN spike_boards b ON b.id = t.board_id
+                JOIN spike_categories c ON c.id = b.cat_id
+                JOIN spike_posts p ON p.thread_id = t.id
+                WHERE t.slug = ?
+                  AND t.is_approved = 1
+                  AND ? >= (CASE WHEN b.min_priv > 0 THEN b.min_priv ELSE c.min_priv END)
+                ORDER BY p.created_at ASC
+                LIMIT 1
+            ");
+            $s->execute([$og_thread_slug, $header_priv]);
             $og_t = $s->fetch();
             if ($og_t) {
                 $meta_title  = h($og_t['title']) . ' — DAoC CMS Forum';
@@ -62,8 +86,19 @@ if ($page === 'viewthread') {
         } catch (\Throwable $e) {}
     } elseif (!empty($_GET['id'])) {
         try {
-            $s = $db->prepare("SELECT t.id, t.title, t.slug, p.content FROM spike_threads t JOIN spike_posts p ON p.thread_id=t.id WHERE t.id=? ORDER BY p.created_at ASC LIMIT 1");
-            $s->execute([(int)$_GET['id']]);
+            $s = $db->prepare("
+                SELECT t.id, t.title, t.slug, p.content
+                FROM spike_threads t
+                JOIN spike_boards b ON b.id = t.board_id
+                JOIN spike_categories c ON c.id = b.cat_id
+                JOIN spike_posts p ON p.thread_id = t.id
+                WHERE t.id = ?
+                  AND t.is_approved = 1
+                  AND ? >= (CASE WHEN b.min_priv > 0 THEN b.min_priv ELSE c.min_priv END)
+                ORDER BY p.created_at ASC
+                LIMIT 1
+            ");
+            $s->execute([(int)$_GET['id'], $header_priv]);
             $og_t = $s->fetch();
             if ($og_t) {
                 $meta_title  = h($og_t['title']) . ' — DAoC CMS Forum';
@@ -76,8 +111,15 @@ if ($page === 'viewthread') {
 
 if ($page === 'viewboard' && !empty($_GET['id'])) {
     try {
-        $s = $db->prepare("SELECT title FROM spike_boards WHERE id=? LIMIT 1");
-        $s->execute([(int)$_GET['id']]);
+        $s = $db->prepare("
+            SELECT b.title
+            FROM spike_boards b
+            JOIN spike_categories c ON c.id = b.cat_id
+            WHERE b.id = ?
+              AND ? >= (CASE WHEN b.min_priv > 0 THEN b.min_priv ELSE c.min_priv END)
+            LIMIT 1
+        ");
+        $s->execute([(int)$_GET['id'], $header_priv]);
         $og_b = $s->fetch();
         if ($og_b) {
             $meta_title  = h($og_b['title']) . ' — DAoC CMS Forum';
@@ -86,8 +128,6 @@ if ($page === 'viewboard' && !empty($_GET['id'])) {
         }
     } catch (\Throwable $e) {}
 }
-
-$header_priv = (int)($_SESSION['priv_level'] ?? 0);
 
 $pm_unread = 0;
 if (isset($_SESSION['user_id'])) {
@@ -98,8 +138,6 @@ if (isset($_SESSION['user_id'])) {
     } catch (Exception $e) {}
 }
 
-// Reported-posts popup badge: priv 2-3 handle reports via a frontend popup
-// (see ajax_reports.php), priv 4-5 keep using the full ACP spike_admin.
 $open_reports_count = 0;
 if ($header_priv >= 2 && $header_priv <= 3) {
     try {
@@ -136,8 +174,21 @@ $_h_mod_on = function(string $key) use ($_h_settings): bool {
 $_header_nav_items = [];
 if ($_header_nav_enabled) {
     try {
-        $stmt_hn = $db->prepare("SELECT title,slug,content,menu_category FROM pages WHERE menu_category != 'none' AND min_priv <= ? ORDER BY menu_pos ASC, title ASC");
-        $stmt_hn->execute([$header_priv]);
+        if ($header_priv >= 4) {
+            $stmt_hn = $db->prepare("SELECT title,slug,content,menu_category FROM pages WHERE menu_category != 'none' AND min_priv <= ? ORDER BY menu_pos ASC, title ASC");
+            $stmt_hn->execute([$header_priv]);
+        } else {
+            $stmt_hn = $db->prepare("
+                SELECT title,slug,content,menu_category
+                FROM pages
+                WHERE menu_category != 'none'
+                  AND min_priv <= ?
+                  AND status = 'published'
+                  AND (published_at IS NULL OR published_at <= NOW())
+                ORDER BY menu_pos ASC, title ASC
+            ");
+            $stmt_hn->execute([$header_priv]);
+        }
         $_header_nav_items = $stmt_hn->fetchAll();
     } catch (PDOException $e) {}
 }
@@ -262,7 +313,7 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
 
 <?php if ($header_priv >= 4 && ($_h_settings['has_critical_error'] ?? '0') === '1' && empty($_COOKIE['dismiss_crit'])): ?>
 <div id="critical-error-banner" style="position: relative; z-index: 9999; background: rgba(224,112,112,0.2); border-bottom: 1px solid rgba(224,112,112,0.5); color: #e07070; padding: 10px; text-align: center; font-size: 0.85em; letter-spacing: 1px;">
-    <i class="fas fa-exclamation-triangle"></i> 
+    <i class="fas fa-exclamation-triangle"></i>
     <?= t('header.critical_log_notice', [], 'A critical system error has been logged in the Audit Trail.') ?>
     <a href="acp.php?s=admin_log" style="color:#e07070; margin-left:10px; font-weight:bold; text-decoration:underline;"><?= t('header.review_log', [], 'Review Log &rarr;') ?></a>
     <i class="fas fa-times" style="position: absolute; right: 15px; top: 12px; cursor: pointer; color: #e07070;" onclick="document.getElementById('critical-error-banner').style.display='none'; document.cookie='dismiss_crit=1; path=/; max-age=2592000';"></i>
@@ -272,12 +323,12 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
 <?php if (isset($_SESSION['user_id']) && ($_SESSION['is_verified'] ?? 1) === 0): ?>
     <?php if ($_req_email_verify): ?>
         <div style="background: rgba(197,160,89,0.15); border-bottom: 1px solid rgba(197,160,89,0.3); color: #c5a059; padding: 10px; text-align: center; font-size: 0.85em; letter-spacing: 1px;">
-            <i class="fas fa-envelope-open-text"></i> 
+            <i class="fas fa-envelope-open-text"></i>
             <?= t('header.verify_notice', [], 'Please check your inbox and verify your email address to unlock all features.') ?>
         </div>
     <?php elseif ($_req_admin_approval): ?>
         <div style="background: rgba(52,152,219,0.15); border-bottom: 1px solid rgba(52,152,219,0.3); color: #3498db; padding: 10px; text-align: center; font-size: 0.85em; letter-spacing: 1px;">
-            <i class="fas fa-user-clock"></i> 
+            <i class="fas fa-user-clock"></i>
             <?= t('header.admin_approval_notice', [], 'Your account has been registered and is currently pending activation by an administrator.') ?>
         </div>
     <?php endif; ?>
@@ -311,7 +362,7 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
 
             <?php if ($_header_nav_enabled): ?>
             <nav class="header-nav hide-mobile" id="headerNav">
- 
+
                 <?php if (!isset($_SESSION['user_id']) && $_h_mod_on('mod_register')): ?>
                     <div class="nav-sep"></div>
                     <a href="?p=register" class="<?= ($page==='register')?'active':'' ?>"><?= t('sidebar.nav_register',[],'Register') ?></a>
@@ -508,7 +559,7 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
         moreLabel.textContent = moreText + ' (' + totalLinks + ')';
 
         const available = nav.clientWidth;
-        const reserve = moreBtn.offsetWidth + 20; 
+        const reserve = moreBtn.offsetWidth + 20;
         let used = 0;
         let overflowAt = -1;
 
@@ -526,10 +577,10 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
         const applyOverflow = (startIndex) => {
             moreMenu.innerHTML = '';
             const overflowing = items.slice(startIndex).filter(el => el.tagName === 'A');
-            
+
             overflowing.forEach(link => {
                 const clone = link.cloneNode(true);
-                clone.style.display = ''; 
+                clone.style.display = '';
                 moreMenu.appendChild(clone);
             });
 
@@ -545,8 +596,8 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
 
         while (moreWrap.getBoundingClientRect().right > nav.getBoundingClientRect().right && start > 0) {
             start--;
-            if (items[start] && items[start].classList.contains('nav-sep')) start--; 
-            
+            if (items[start] && items[start].classList.contains('nav-sep')) start--;
+
             if (start >= 0) {
                 applyOverflow(start);
             } else {
@@ -567,7 +618,7 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
             moreBtn.setAttribute('aria-expanded', 'false');
         }
     });
-    
+
     document.addEventListener('click', function (e) {
         if (!moreWrap.contains(e.target) && !moreMenu.contains(e.target)) {
             moreWrap.classList.remove('open');
@@ -596,7 +647,7 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
     window.addEventListener('scroll', closeMenu, { passive: true });
 
     if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(layout); 
+        document.fonts.ready.then(layout);
     }
     window.addEventListener('load', layout);
     layout();
@@ -626,10 +677,10 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
     function showNextEvent() {
         if (isDisplaying || eventQueue.length === 0) return;
         isDisplaying = true;
-        
+
         const ev = eventQueue.shift();
         let icon = '<i class="fas fa-bell" style="color:#c5a059; margin-right:8px;"></i>';
-        
+
         if (ev.type === 'kill') icon = '<i class="fas fa-skull" style="color:#e07070; margin-right:8px;"></i>';
         if (ev.type === 'keep') icon = '<i class="fas fa-chess-rook" style="color:#c5a059; margin-right:8px;"></i>';
         if (ev.type === 'relic') icon = '<i class="fas fa-gem" style="color:#3498db; margin-right:8px;"></i>';
@@ -818,8 +869,6 @@ function reportsPopupSetStatus(reportId, newStatus) {
         .then(d => {
             if (!d.ok) return;
 
-            // 'reviewing' keeps the report in the popup (still needs a final
-            // resolve/dismiss); resolved/dismissed remove it from the list.
             if (newStatus !== 'reviewing') {
                 const el = document.getElementById('report-' + reportId);
                 if (el) el.remove();

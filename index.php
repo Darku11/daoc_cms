@@ -1,24 +1,8 @@
 <?php
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-register_shutdown_function(function() {
-    $error = error_get_last();
-    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        while (ob_get_level()) { ob_end_clean(); } 
-        
-        echo "<div style='background:#0a0a0c; color:#d1d1c4; padding:40px; border:1px solid #a82424; font-family:serif; position:fixed; top:0; left:0; width:100%; height:100%; z-index:999999;'>";
-		echo "<h1 style='color:#a82424; text-transform:uppercase; letter-spacing:2px;'>" . t('critical_architecture_breach', 'Critical Architecture Breach') . "</h1>";
-		echo "<p style='font-size:1.2rem;'>" . t('connection_to_world_lost', 'The connection to the world has been lost. The server reports:') . "</p>";
-		echo "<pre style='background:#000; padding:20px; color:#c6a664; font-size:1rem; border-left:4px solid #a82424; overflow-x:auto;'>";
-		echo t('error', 'Error') . ": " . $error['message'] . "\n\n";
-		echo t('file', 'File') . ":  " . $error['file'] . "\n";
-		echo t('line', 'Line') . ":  " . $error['line'];
-		echo "</pre>";
-		echo "<p style='margin-top:20px; color:#888;'>" . t('share_these_runes', 'Share these runes with me. We will mend this breach in seconds.') . "</p>";
-		echo "</div>";
-    }
-});
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+ini_set('log_errors', '1');
 
 // Normal CMS execution starts here
 ob_start();
@@ -157,7 +141,7 @@ if ($userPriv < 4 && isset($module_slug_map[$page_slug])) {
     if (($cms_settings[$required_setting] ?? '1') === '0') {
         $article_title = '404';
         $module_content = '<div class="info-msg">' . t('general.module_disabled', [], 'This section is currently not available.') . '</div>';
-        
+
         // Clear the output buffer and pass it directly to the template engine
         while (ob_get_level()) { ob_end_clean(); }
         cms_render_template('layout', get_defined_vars());
@@ -172,9 +156,12 @@ if ($can_edit) {
 } else {
     $stmt_page = $db->prepare("
         SELECT title, content, meta_title, meta_description, hero_image, status FROM pages
-        WHERE slug = ? AND status = 'published' AND (published_at IS NULL OR published_at <= NOW())
+        WHERE slug = ?
+          AND status = 'published'
+          AND (published_at IS NULL OR published_at <= NOW())
+          AND min_priv <= ?
     ");
-    $stmt_page->execute([$page_slug]);
+    $stmt_page->execute([$page_slug, $userPriv]);
 }
 $data = $stmt_page->fetch();
 
@@ -309,7 +296,7 @@ if (!$pluginLoaded) {
         "modules/{$page_slug}.php",
         ($page_slug === 'login') ? 'login.php' : '',
     ];
-    
+
     $view_to_include = '';
     foreach ($view_candidates as $candidate) {
         if ($candidate && file_exists($candidate)) {
@@ -319,17 +306,17 @@ if (!$pluginLoaded) {
     }
 
     if ($view_to_include && !isset($_GET['edit_mode'])) {
-        $active_style_name = $cms_settings['active_theme'] ?? 'default'; 
+        $active_style_name = $cms_settings['active_theme'] ?? 'default';
         $safe_style_name = preg_replace('/[^a-zA-Z0-9_\-]/', '', $active_style_name);
         $basename = basename($view_to_include);
-        
+
         // Theme override path (matches htdocs/templates/ structure)
         $override_file = "templates/{$safe_style_name}/{$basename}";
 
         if (file_exists($override_file)) {
-            include($override_file); 
+            include($override_file);
         } else {
-            include($view_to_include); 
+            include($view_to_include);
         }
     } elseif (empty($data['content']) && !isset($_GET['edit_mode'])) {
         echo '<div class="info-msg">' . t('general.page_not_found', [], 'The page you are looking for does not exist yet.') . '</div>';

@@ -5,10 +5,9 @@ if (!defined('IN_CMS')) {
     require_once __DIR__ . '/includes/db.php';
 }
 
-// ── Settings ─────────────────────────────────────────────
 $site_name = $GLOBALS['cms_settings']['site_name'] ?? 'DAoC CMS';
-$site_url  = defined('SITE_URL') ? SITE_URL : '';
-$feed_desc = 'Latest forum posts on ' . $site_name;
+$site_url  = defined('SITE_URL') ? rtrim((string)SITE_URL, '/') : '';
+$feed_desc = 'Latest public forum posts on ' . $site_name;
 $limit     = 20;
 
 try {
@@ -17,51 +16,45 @@ try {
     $site_name = $r->fetchColumn() ?: $site_name;
 } catch (\Throwable $e) {}
 
-// Optional: filter by board
 $board_id = isset($_GET['board']) ? (int)$_GET['board'] : 0;
 
-// ── Loading posts ────────────────────────────────────────
 try {
+    $sql = "
+        SELECT p.id as post_id, p.content, p.created_at,
+               t.id as thread_id, t.title as thread_title, t.slug as thread_slug,
+               b.title as board_title,
+               u.username
+        FROM spike_posts p
+        JOIN spike_threads t ON p.thread_id = t.id
+        JOIN spike_boards b ON t.board_id = b.id
+        JOIN spike_categories c ON b.cat_id = c.id
+        JOIN users u ON p.author_id = u.id
+        WHERE t.is_approved = 1
+          AND 0 >= (CASE WHEN b.min_priv > 0 THEN b.min_priv ELSE c.min_priv END)
+          AND u.is_shadow_banned = 0
+    ";
+
+    $params = [];
     if ($board_id > 0) {
-        $stmt = $db->prepare("
-            SELECT p.id as post_id, p.content, p.created_at,
-                   t.id as thread_id, t.title as thread_title, t.slug as thread_slug,
-                   b.title as board_title,
-                   u.username
-            FROM spike_posts p
-            JOIN spike_threads t ON p.thread_id = t.id
-            JOIN spike_boards  b ON t.board_id  = b.id
-            JOIN users         u ON p.author_id = u.id
-            WHERE t.board_id = ?
-            ORDER BY p.created_at DESC
-            LIMIT ?
-        ");
-        $stmt->execute([$board_id, $limit]);
-    } else {
-        $stmt = $db->prepare("
-            SELECT p.id as post_id, p.content, p.created_at,
-                   t.id as thread_id, t.title as thread_title, t.slug as thread_slug,
-                   b.title as board_title,
-                   u.username
-            FROM spike_posts p
-            JOIN spike_threads t ON p.thread_id = t.id
-            JOIN spike_boards  b ON t.board_id  = b.id
-            JOIN users         u ON p.author_id = u.id
-            ORDER BY p.created_at DESC
-            LIMIT ?
-        ");
-        $stmt->execute([$limit]);
+        $sql .= " AND t.board_id = ?";
+        $params[] = $board_id;
     }
+
+    $sql .= " ORDER BY p.created_at DESC LIMIT ?";
+    $params[] = $limit;
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
     $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) {
+    error_log('RSS feed generation failed: ' . $e->getMessage());
     $posts = [];
 }
 
-// ── Output ───────────────────────────────────────────────
 header('Content-Type: application/rss+xml; charset=UTF-8');
-header('Cache-Control: public, max-age=900'); // 15 min cache
+header('Cache-Control: public, max-age=900');
 
-$feed_url = $site_url . '/index.php?p=rss' . ($board_id > 0 ? "&board=$board_id" : '');
+$feed_url = $site_url . '/rss.php' . ($board_id > 0 ? '?board=' . $board_id : '');
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 ?>
