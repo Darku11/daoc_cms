@@ -30,4 +30,6 @@ Apply all pending migrations in version order:
 php migrate.php
 ```
 
-The applied schema version is stored in the `settings` table as `cms_schema_version`. Failed migrations are rolled back and do not advance the stored schema version.
+The applied schema version is stored in the `settings` table as `cms_schema_version`. The version is advanced only after a migration finishes successfully.
+
+MySQL DDL statements can commit implicitly, so migrations that change tables must be written so they can be run safely again after an interrupted or partially completed update. A migration must not assume that wrapping DDL in a transaction will roll every schema change back.
