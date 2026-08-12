@@ -6,7 +6,7 @@
     <div class="footer-container">
         <div class="status-bar">
             <p>
-                <a href="https://aldhran-server.eu" class="footer-link">DAoC CMS 1.0 RC1 created by Aldhran</a><br />
+                <a href="https://aldhran-server.eu" class="footer-link">DAoC CMS 1.0 RC2 created by Aldhran</a><br />
                 <?php if (($GLOBALS['cms_settings']['mod_imprint'] ?? '1') === '1'): ?>
                     <a href="index.php?p=imprint" class="footer-link">Imprint</a>
                 <?php endif; ?>
