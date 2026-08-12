@@ -159,12 +159,15 @@ For this purpose, DAoC CMS provides several optional bridges and integration com
 
 These include components such as:
 
-- **Aldhran Bridge**
-- **ASP.NET Bridge**
+- **Aldhran Bridge** (`AldhranBridge.cs`) — in-game console bridge, runs inside your DOL/OpenDAoC server
+- **Aldhran Console** — the ASP.NET service that connects the CMS to Aldhran Bridge over HTTP
 - **Game Server C# Scripts**
 - **Live Events Integration**
 - **Discord Bot Integration**
 - **Launcher / Portal APIs**
+
+Source and setup instructions for these bridge components are maintained in the
+[`daoc_cms_utilities`](https://github.com/Darku11/daoc_cms_utilities) repository.
 
 The bridges are **not required for a basic DAoC CMS installation**.
 
