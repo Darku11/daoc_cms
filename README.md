@@ -130,6 +130,26 @@ You do not need to use every feature DAoC CMS provides.
 
 Enable and configure the modules that make sense for your individual freeshard.
 
+## SEO
+
+DAoC CMS outputs canonical URLs for frontend pages and provides a public XML sitemap at:
+
+```text
+/sitemap.php
+```
+
+The sitemap contains only published, currently visible CMS pages that are available without elevated privileges.
+
+On Apache installations, the included `.htaccess` routes:
+
+```text
+/robots.txt
+```
+
+to the dynamic `robots.php` endpoint. The generated robots response references the configured sitemap and excludes internal administration, setup and migration paths from crawler access.
+
+If another web server is used, route `/robots.txt` to `robots.php` in the corresponding web server configuration.
+
 ## Game Server Bridges
 
 Some advanced DAoC CMS features require communication between the website and the actual game server.
