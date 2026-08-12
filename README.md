@@ -64,6 +64,10 @@ Before installing DAoC CMS, make sure your environment provides:
   - cURL
   - ZIP
   - Fileinfo
+  - zlib
+- Recommended PHP extensions:
+  - mbstring
+  - OpenSSL
 
 Additional requirements may apply to optional bridges, Discord integration and other server-side components.
 
@@ -157,9 +161,23 @@ If DAoC CMS was installed using Git, updates can be retrieved using:
 git pull origin main
 ```
 
-Before updating a production installation, creating a backup of your files and databases is strongly recommended.
+Before updating a production installation, create a backup of the CMS files and databases.
 
-Always check the corresponding release notes for database changes, configuration changes or additional update instructions.
+After pulling a release, check whether database migrations are pending:
+
+```bash
+php migrate.php --status
+```
+
+Apply pending migrations with:
+
+```bash
+php migrate.php
+```
+
+The migration runner executes migrations in version order and stores the current database schema version in the CMS `settings` table.
+
+Always check the corresponding release notes for configuration changes or additional update instructions.
 
 ## Security
 
