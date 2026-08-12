@@ -40,18 +40,9 @@ final class CmsMigrationManager
                 throw new RuntimeException('Migration must return a callable: ' . basename($migration['path']));
             }
 
-            $db->beginTransaction();
-            try {
-                $callback($db);
-                self::storeVersion($db, $migration['version']);
-                $db->commit();
-                $applied[] = $migration['version'];
-            } catch (Throwable $e) {
-                if ($db->inTransaction()) {
-                    $db->rollBack();
-                }
-                throw $e;
-            }
+            $callback($db);
+            self::storeVersion($db, $migration['version']);
+            $applied[] = $migration['version'];
         }
 
         return $applied;
