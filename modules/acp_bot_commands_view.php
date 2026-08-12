@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 if ($userPriv < 5) { echo '<div class="acp-empty">Access denied. Super Admin required.</div>'; return; }
 

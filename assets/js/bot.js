@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const net = require('net');
 const crypto = require('crypto');

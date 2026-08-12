@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) { exit; }
 
 $userPriv = (int)($_SESSION['priv_level'] ?? 0);
@@ -47,6 +48,7 @@ foreach ($categories as $cat) {
         $b['thread_count'] = (int)$b['thread_count'];
         $b['post_count']   = (int)$b['post_count'];
         $b['cat_min_post'] = (int)($cat['min_priv_post'] ?? 0);
+        $b['graphic_url'] = (string)($b['graphic_url'] ?? '');
         $cat_boards[] = $b;
     }
     $forum_structure[] = ['info' => $cat, 'boards' => $cat_boards];
@@ -78,10 +80,24 @@ try {
     $forum_stats['total_threads'] = (int)$db->query("SELECT COUNT(*) FROM spike_threads")->fetchColumn();
     $forum_stats['total_posts']   = (int)$db->query("SELECT COUNT(*) FROM spike_posts")->fetchColumn();
     $forum_stats['total_members'] = (int)$db->query("SELECT COUNT(*) FROM users WHERE standing < 5")->fetchColumn();
-    $nm = $db->query("SELECT username FROM users ORDER BY id DESC LIMIT 1")->fetch();
+    $nm = $db->query("SELECT username FROM users WHERE standing < 5 ORDER BY id DESC LIMIT 1")->fetch();
     $forum_stats['newest_member'] = $nm['username'] ?? '';
 } catch (\Throwable $e) {
     error_log("Spike stats error: " . $e->getMessage());
+}
+
+$recent_members = [];
+try {
+    $stmt_recent_members = $db->query(
+        "SELECT id, username, avatar_url, created_at
+           FROM users
+          WHERE standing < 5
+          ORDER BY created_at DESC, id DESC
+          LIMIT 5"
+    );
+    $recent_members = $stmt_recent_members->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) {
+    error_log("Spike recent members error: " . $e->getMessage());
 }
 
 $latest_posts = [];

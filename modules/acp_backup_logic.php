@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 
 if (!isset($userPriv) || $userPriv < 4) {
@@ -163,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db_name = $GLOBALS['cms_settings']['db_name'] ?? '';
 
         if (file_exists($exe_mysql)) {
-            // DOL Server DB Dump
+            // Game Server DB Dump
             if (!empty($db_name)) {
                 $cmd_mysql = sprintf(
                     '"%s" --host=%s --user=%s --password=%s %s > "%s"',

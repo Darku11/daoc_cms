@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) { exit; }
 
 $board_id    = isset($_GET['bid']) ? (int)$_GET['bid'] : 0;

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 /**
  * Hero / page-header partial
  * - all pages (incl. home) -> compact hero head (image/gradient + title + breadcrumb)

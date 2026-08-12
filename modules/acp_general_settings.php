@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) die();
 
 $_acp_auth = (defined('IN_ACP') && isset($userPriv) && $userPriv >= 4);
@@ -109,7 +110,7 @@ if (empty($languages))        $languages        = ['DE', 'EN'];
 
 // ── Game Server: Auto-Detection ───────────────────────────────
 
-function gs_scan_dol_paths(): array
+function gs_scan_server_paths(): array
 {
     // Priority: .bat > .exe > GameServer.dll > serverconfig.xml
     // .bat is the preferred restart entrypoint on Windows.
@@ -120,6 +121,9 @@ function gs_scan_dol_paths(): array
         foreach ([
             $drive . ':\\Release',
             $drive . ':\\DOL',
+            $drive . ':\\OpenDAoC',
+            $drive . ':\\OpenDAoC-Core',
+            $drive . ':\\OpenDAoC',
             $drive . ':\\DAoC',
             $drive . ':\\daoc',
             $drive . ':\\dol',
@@ -127,6 +131,11 @@ function gs_scan_dol_paths(): array
             $drive . ':\\server',
             $drive . ':\\GameServer\\Release',
             $drive . ':\\DOL\\Release',
+            $drive . ':\\OpenDAoC\\Release',
+            $drive . ':\\OpenDAoC\\Debug',
+            $drive . ':\\OpenDAoC\\Release\\lib',
+            $drive . ':\\OpenDAoC\\Debug\\lib',
+            $drive . ':\\OpenDAoC\\Release',
             $drive . ':\\DAoC\\Release',
         ] as $root) {
             $win_roots[] = $root;
@@ -134,7 +143,7 @@ function gs_scan_dol_paths(): array
     }
     // Also check adjacent folder
     $webroot = dirname(dirname(__FILE__));
-    foreach (['..', '..\\Release', '..\\DOL', '..\\GameServer'] as $rel) {
+    foreach (['..', '..\\Release', '..\\DOL', '..\\OpenDAoC', '..\\GameServer'] as $rel) {
         $abs = realpath($webroot . DIRECTORY_SEPARATOR . $rel);
         if ($abs) $win_roots[] = $abs;
     }
@@ -171,23 +180,23 @@ function gs_scan_dol_paths(): array
     return $result;
 }
 
-$dol_scan_results    = gs_scan_dol_paths();
-$dol_saved_bat       = $settings['game_server_bat_path'] ?? '';
-$dol_auto_suggestion = !empty($dol_scan_results) ? $dol_scan_results[0] : null;
+$server_scan_results    = gs_scan_server_paths();
+$server_saved_startup       = $settings['game_server_bat_path'] ?? '';
+$server_auto_suggestion = !empty($server_scan_results) ? $server_scan_results[0] : null;
 
-$dol_auto_saved_msg = '';
-if ($dol_auto_suggestion) {
-    $needs_update = empty($dol_saved_bat) || !file_exists($dol_saved_bat);
+$server_auto_saved_msg = '';
+if ($server_auto_suggestion) {
+    $needs_update = empty($server_saved_startup) || !file_exists($server_saved_startup);
     if ($needs_update) {
         try {
             $db->prepare(
                 "INSERT INTO settings (setting_key, value)
                  VALUES ('game_server_bat_path', ?)
                  ON DUPLICATE KEY UPDATE value = VALUES(value)"
-            )->execute([$dol_auto_suggestion]);
-            $dol_saved_bat     = $dol_auto_suggestion;
-            $dol_auto_saved_msg = $dol_auto_suggestion;
-            aldhran_log('SETTINGS_AUTO', 'game_server_bat_path auto-set to: ' . $dol_auto_suggestion, (int)($_SESSION['user_id'] ?? 0));
+            )->execute([$server_auto_suggestion]);
+            $server_saved_startup     = $server_auto_suggestion;
+            $server_auto_saved_msg = $server_auto_suggestion;
+            aldhran_log('SETTINGS_AUTO', 'game_server_bat_path auto-set to: ' . $server_auto_suggestion, (int)($_SESSION['user_id'] ?? 0));
         } catch (\Throwable $e) {}
     }
 }
@@ -331,12 +340,12 @@ function gs($s, $key, $default = '1') {
                 <div class="gs-group-head"><i class="fas fa-code-branch"></i> Server Core</div>
                 <div class="gs-row">
                     <div class="gs-row-label">Emulator
-                        <div class="gs-row-hint">OpenDAoC is the primary RC2 target. DOL keeps the RC1-compatible schema mappings.</div>
+                        <div class="gs-row-hint">Choose the game server core used by this installation. The CMS applies the matching compatibility mappings for Dawn of Light or OpenDAoC.</div>
                     </div>
                     <div>
                         <select name="game_server_core" class="gs-select">
                             <option value="opendaoc" <?= gs($settings, 'game_server_core', 'dol') === 'opendaoc' ? 'selected' : '' ?>>OpenDAoC</option>
-                            <option value="dol" <?= gs($settings, 'game_server_core', 'dol') === 'dol' ? 'selected' : '' ?>>Dawn of Light (legacy)</option>
+                            <option value="dol" <?= gs($settings, 'game_server_core', 'dol') === 'dol' ? 'selected' : '' ?>>Dawn of Light (DOL)</option>
                         </select>
                     </div>
                 </div>
@@ -346,24 +355,24 @@ function gs($s, $key, $default = '1') {
                 <div class="gs-group-head"><i class="fas fa-search"></i> Auto-Detection</div>
                 <div style="padding:16px 18px;">
 
-                    <?php if ($dol_auto_suggestion): ?>
+                    <?php if ($server_auto_suggestion): ?>
                     <div class="gs-detect-box" id="gs-detect-box">
                         <div class="gs-detect-icon gs-detect-icon--found"><i class="fas fa-check-circle"></i></div>
                         <div class="gs-detect-info">
-                            <div class="gs-detect-title">DOL Server detected</div>
-                            <div class="gs-detect-path" id="gs-detect-path"><?= h($dol_auto_suggestion) ?></div>
-                            <?php if (count($dol_scan_results) > 1): ?>
+                            <div class="gs-detect-title">Game server installation detected</div>
+                            <div class="gs-detect-path" id="gs-detect-path"><?= h($server_auto_suggestion) ?></div>
+                            <?php if (count($server_scan_results) > 1): ?>
                             <div class="gs-scan-list acp-s-cb458930" id="gs-scan-list">
-                                <?php foreach ($dol_scan_results as $r): ?>
+                                <?php foreach ($server_scan_results as $r): ?>
                                 <span onclick="gsUsePath('<?= addslashes(h($r)) ?>')"><?= h($r) ?></span>
                                 <?php endforeach; ?>
                             </div>
                             <?php endif; ?>
                         </div>
                         <div class="gs-detect-actions">
-                            <?php if (count($dol_scan_results) > 1): ?>
+                            <?php if (count($server_scan_results) > 1): ?>
                             <button type="button" class="gs-btn-rescan" onclick="gsToggleScanList()">
-                                <i class="fas fa-list"></i> <?= count($dol_scan_results) ?> found
+                                <i class="fas fa-list"></i> <?= count($server_scan_results) ?> found
                             </button>
                             <?php endif; ?>
                             <button type="button" class="gs-btn-confirm" onclick="gsConfirmPath()">
@@ -376,7 +385,7 @@ function gs($s, $key, $default = '1') {
                     <div class="gs-detect-box gs-detect-box--none">
                         <div class="gs-detect-icon gs-detect-icon--none"><i class="fas fa-question-circle"></i></div>
                         <div class="gs-detect-info">
-                            <div class="gs-detect-title acp-s-6ba8f8cb">No DOL server detected automatically</div>
+                            <div class="gs-detect-title acp-s-6ba8f8cb">No game server installation detected automatically</div>
                             <div class="gs-detect-path--none">Please enter the path manually below.</div>
                         </div>
                         <div class="gs-detect-actions">
@@ -387,10 +396,10 @@ function gs($s, $key, $default = '1') {
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($dol_saved_bat): ?>
+                    <?php if ($server_saved_startup): ?>
                     <div class="acp-s-750a70d4">
                         <i class="fas fa-save acp-s-4d29eea1"></i>
-                        Currently saved: <span class="acp-s-10baa7d4"><?= h($dol_saved_bat) ?></span>
+                        Currently saved: <span class="acp-s-10baa7d4"><?= h($server_saved_startup) ?></span>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -399,7 +408,7 @@ function gs($s, $key, $default = '1') {
             <div class="gs-group">
                 <div class="gs-group-head"><i class="fas fa-network-wired"></i> Bridge Connection</div>
                 <div class="gs-row">
-                    <div class="gs-row-label">Game Server IP<div class="gs-row-hint">IP of the DOL server (usually 127.0.0.1).</div></div>
+                    <div class="gs-row-label">Game Server IP<div class="gs-row-hint">IP of the selected game server (usually 127.0.0.1).</div></div>
                     <div><input type="text" name="game_server_ip" class="gs-input" value="<?= h(gs($settings,'game_server_ip','127.0.0.1')) ?>" placeholder="127.0.0.1"></div>
                 </div>
                 <div class="gs-row">
@@ -435,17 +444,17 @@ function gs($s, $key, $default = '1') {
             <div class="gs-group">
                 <div class="gs-group-head"><i class="fas fa-file-code"></i> Startup Script</div>
                 <div class="gs-row">
-                    <div class="gs-row-label">Server .bat Path
-                        <div class="gs-row-hint">Full path to DOLServer.bat. Used for automatic restart after shutdown.</div>
+                    <div class="gs-row-label">Server Startup Path
+                        <div class="gs-row-hint">Full path to the runnable game server startup script or executable used for automatic restarts.</div>
                     </div>
                     <div>
                         <input type="text" name="game_server_bat_path" id="gs-bat-input"
                                class="gs-input gs-input--wide"
-                               value="<?= h($dol_saved_bat) ?>"
-                               placeholder="<?= PHP_OS_FAMILY === 'Windows' ? 'C:\\Release\\DOLServer.bat' : '/opt/daoc/Release/DOLServer.sh' ?>">
+                               value="<?= h($server_saved_startup) ?>"
+                               placeholder="<?= PHP_OS_FAMILY === 'Windows' ? 'C:\\Path\\to\\game-server-start.bat' : '/opt/daoc/start-server.sh' ?>">
                         <div class="acp-s-4a74dca2">
-                            <?php if ($dol_auto_suggestion && $dol_saved_bat !== $dol_auto_suggestion): ?>
-                            Auto-detected: <span onclick="gsConfirmPath()" class="acp-s-4ac342c2"><?= h($dol_auto_suggestion) ?></span>
+                            <?php if ($server_auto_suggestion && $server_saved_startup !== $server_auto_suggestion): ?>
+                            Auto-detected: <span onclick="gsConfirmPath()" class="acp-s-4ac342c2"><?= h($server_auto_suggestion) ?></span>
                             <span onclick="gsConfirmPath()" class="acp-s-cfadd431">← use this</span>
                             <?php endif; ?>
                         </div>
@@ -458,10 +467,9 @@ function gs($s, $key, $default = '1') {
                 <div class="acp-s-f8ec4b54">
                     <div class="acp-s-a2457f2e">
                         The watchdog is a <code class="acp-s-65ded8da">daoc_cms_watchdog.bat</code>
-                        that runs permanently and automatically restarts DOLServer when it shuts down.
-                        Place it in the same folder as <code class="acp-s-65ded8da">DOLServer.bat</code>
-                        and run it instead of starting DOL directly.<br><br>
-                        <span class="acp-s-757462cb">The file is generated based on the saved .bat path above.</span>
+                        that runs permanently and automatically restarts the configured game server when it shuts down.
+                        Place it next to your configured startup script and run the watchdog instead of starting the server directly.<br><br>
+                        <span class="acp-s-757462cb">The file is generated from the configured startup path above and works with the selected DOL/OpenDAoC core.</span>
                     </div>
 
                     <?php
@@ -473,7 +481,7 @@ function gs($s, $key, $default = '1') {
                         <span style="color:#333;">@echo off</span><br>
                         <span style="color:#555;">set RETRIES=0</span><br>
                         <span style="color:#c5a059;">:loop</span><br>
-                        <span style="color:#555;">echo [DAoC CMS Watchdog] Starting DOL Server...</span><br>
+                        <span style="color:#555;">echo [DAoC CMS Watchdog] Starting <?= gs($settings, 'game_server_core', 'dol') === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light' ?> server...</span><br>
                         <span style="color:#555;">cd /d "</span><span style="color:#888;"><?= h($saved_bat ? dirname($saved_bat) : 'C:\Release') ?></span><span style="color:#555;">"</span><br>
                         call "<span style="color:#888;"><?= h($saved_bat ?: 'C:\Release\DOLServer.bat') ?></span>"<br>
                         <span style="color:#555;">set /a RETRIES+=1</span><br>
@@ -495,7 +503,7 @@ function gs($s, $key, $default = '1') {
                     <?php else: ?>
                     <div style="font-size:0.72em;color:#444;font-family:sans-serif;">
                         <i class="fas fa-exclamation-triangle" style="color:#554400;margin-right:5px;"></i>
-                        Save a valid .bat path above first to generate the watchdog.
+                        Save a valid startup path above first to generate the watchdog.
                     </div>
                     <?php endif; ?>
                 </div>

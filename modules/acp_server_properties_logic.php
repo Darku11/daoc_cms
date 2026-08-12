@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 if (!isset($userPriv))      $userPriv      = (int)($_SESSION['priv_level'] ?? 0);
 if (!isset($currentUserId)) $currentUserId = (int)($_SESSION['user_id']    ?? 0);

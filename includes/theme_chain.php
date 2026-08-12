@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!function_exists('aldhran_resolve_theme_chain')) {
 function aldhran_resolve_theme_chain(PDO $db, string $theme_slug): array {
     $theme_slug = preg_replace('/[^a-z0-9_-]/', '', $theme_slug);

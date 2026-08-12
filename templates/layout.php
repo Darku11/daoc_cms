@@ -1,4 +1,5 @@
-<?php if (!defined('IN_CMS')) { exit; } ?>
+<?php
+// SPDX-License-Identifier: GPL-3.0-only if (!defined('IN_CMS')) { exit; } ?>
 <?php require_once __DIR__ . '/../header.php'; ?>
 
 <?php if (file_exists(__DIR__ . '/default/partials/hero.php')) require_once __DIR__ . '/default/partials/hero.php'; ?>

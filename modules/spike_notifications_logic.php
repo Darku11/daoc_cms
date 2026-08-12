@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) { exit; }
 
 require_once __DIR__ . '/spike_notification_helper.php';

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 
 define('IN_CMS', true);
 define('IN_ACP', true);
@@ -50,32 +51,44 @@ if (isset($_GET['s']) && $_GET['s'] === 'ingame_console' && isset($_GET['ajax'])
 // ── Watchdog.bat Download ─────────────────────────────────────
 if (isset($_GET['s']) && $_GET['s'] === 'general_settings' && isset($_GET['download_watchdog'])) {
     acp_check_ajax_auth(4);
-    $bat_path = $db->query(
-        "SELECT value FROM settings WHERE setting_key = 'game_server_bat_path' LIMIT 1"
-    )->fetchColumn() ?: 'C:\\Release\\DOLServer.bat';
 
-    $bat_dir  = str_replace('/', '\\', dirname($bat_path));
-    $exe_path = $bat_dir . '\\DOLServer.exe';
+    $cfg = $db->query(
+        "SELECT setting_key, value FROM settings
+          WHERE setting_key IN ('game_server_bat_path', 'game_server_core')"
+    )->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $startup_path = trim((string)($cfg['game_server_bat_path'] ?? ''));
+    if ($startup_path === '' || !is_file($startup_path)) {
+        http_response_code(400);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo 'Configure a valid game server startup path before downloading the watchdog.';
+        exit;
+    }
+
+    $core = strtolower((string)($cfg['game_server_core'] ?? 'dol'));
+    $core_label = $core === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light';
+    $startup_dir = str_replace('/', '\\', dirname($startup_path));
+    $extension = strtolower((string)pathinfo($startup_path, PATHINFO_EXTENSION));
+    $start_line = $extension === 'dll'
+        ? 'dotnet "' . $startup_path . '"'
+        : 'call "' . $startup_path . '"';
 
     $w  = '@echo off' . "\r\n";
     $w .= 'title DAoC CMS Watchdog' . "\r\n";
     $w .= 'set RETRIES=0' . "\r\n";
-    $w .= 'set LAST_START=0' . "\r\n";
     $w .= ':loop' . "\r\n";
-    $w .= 'echo [DAoC CMS Watchdog] Starting DOL Server (attempt %RETRIES%)...' . "\r\n";
-    $w .= 'cd /d "' . $bat_dir . '"' . "\r\n";
-    $w .= 'set START_TIME=%TIME%' . "\r\n";
-    $w .= 'call "' . $bat_path . '"' . "\r\n";
+    $w .= 'echo [DAoC CMS Watchdog] Starting ' . $core_label . ' server (attempt %RETRIES%)...' . "\r\n";
+    $w .= 'cd /d "' . $startup_dir . '"' . "\r\n";
+    $w .= $start_line . "\r\n";
     $w .= 'echo [DAoC CMS Watchdog] Server stopped.' . "\r\n";
     $w .= 'set /a RETRIES+=1' . "\r\n";
     $w .= 'if %RETRIES% GEQ 3 (' . "\r\n";
-    $w .= '  echo [DAoC CMS Watchdog] Too many restarts. Stopping watchdog.' . "\r\n";
+    $w .= '  echo [DAoC CMS Watchdog] Too many restart attempts. Stopping watchdog.' . "\r\n";
     $w .= '  pause' . "\r\n";
     $w .= '  exit /b 1' . "\r\n";
     $w .= ')' . "\r\n";
     $w .= 'echo [DAoC CMS Watchdog] Restarting in 15 seconds...' . "\r\n";
     $w .= 'timeout /t 15 /nobreak > nul' . "\r\n";
-    $w .= 'set RETRIES=0' . "\r\n";
     $w .= 'goto loop' . "\r\n";
 
     header('Content-Type: application/octet-stream');
@@ -305,8 +318,8 @@ $allowed_sections = [
     'bot_settings'       => ['min_priv'=>4,'label'=>'Bot & AI Settings',    'icon'=>'fa-robot',            'category'=>'ai',         'desc'=>'Discord bot & AI provider'],
     'bot_commands'       => ['min_priv'=>4,'label'=>'Bot Commands',         'icon'=>'fa-terminal',         'category'=>'ai',         'desc'=>'AuthLevel & permission overrides'],
     'ai_suggestions'     => ['min_priv'=>4,'label'=>'AI Suggestions',       'icon'=>'fa-lightbulb',        'category'=>'ai',         'desc'=>'Accept or reject AI proposals'],
-    'ingame_console'     => ['min_priv'=>4,'label'=>'Ingame Console',       'icon'=>'fa-terminal',         'category'=>'server',     'desc'=>'Realtime player management via DOL Console'],
-    'server_properties'  => ['min_priv'=>4,'label'=>'Server Properties',    'icon'=>'fa-sliders-h',        'category'=>'server',     'desc'=>'DOL server properties & rates'],
+    'ingame_console'     => ['min_priv'=>4,'label'=>'Ingame Console',       'icon'=>'fa-terminal',         'category'=>'server',     'desc'=>'Realtime player management via the game server console'],
+    'server_properties'  => ['min_priv'=>4,'label'=>'Server Properties',    'icon'=>'fa-sliders-h',        'category'=>'server',     'desc'=>'Game server properties & rates'],
     'cache'              => ['min_priv'=>3,'label'=>'Cache Manager',        'icon'=>'fa-database',         'category'=>'system',     'desc'=>'CSS, OPcache & browser headers'],
 	'backup'             => ['min_priv'=>4,'label'=>'Backup Manager',    'icon'=>'fa-archive',          'category'=>'system',     'desc'=>'Manage System & Database-Backups'],
 	'char_editor'        => ['min_priv'=>3,'label'=>'Character Editor',  'icon'=>'fa-user-ninja',       'category'=>'gamecontent','desc'=>'Editor for Playercharacters'],

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!isset($_SESSION['user_id'])) return;
 
 $is_verified = (int)($_SESSION['is_verified'] ?? 0);
@@ -190,7 +191,7 @@ if (!isset($my_chars)) {
                                    class="um-input">
                         </div>
                         <div class="profile-field">
-                            <label class="um-label">DOL PrivLevel (Ingame)</label>
+                            <label class="um-label">Ingame PrivLevel</label>
                             <select name="u_ingame_priv" class="um-input" <?php echo $is_restricted ? 'disabled' : ''; ?>>
                                 <option value="1" <?= ((int)($me_view['ingame_priv'] ?? 1) === 1) ? 'selected' : '' ?>>1 — <?= t('acp_um_player', [], 'Player') ?></option>
                                 <option value="2" <?= ((int)($me_view['ingame_priv'] ?? 1) === 2) ? 'selected' : '' ?>>2 — GM</option>

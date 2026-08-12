@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 
 const DAOC_CMS_GITHUB_REPO = 'Darku11/daoc_cms';

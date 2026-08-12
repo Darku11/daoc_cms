@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) { exit; }
 
 $_ep_thread_slug = $post_data['thread_slug'] ?? ('thread-' . (int)$post_data['thread_id']);

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 /**
  * Herald shared helpers — class mapping, realm data, RR titles.
  * Included by herald_view / herald_char_view / herald_guild.

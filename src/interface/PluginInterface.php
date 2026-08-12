@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 interface PluginInterface
 {
     public static function getMetadata(): array;

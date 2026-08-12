@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 declare(strict_types=1);
 
 if (!isset($installer)) {
@@ -12,7 +13,7 @@ $lockFile = $root . '/install.lock';
 $serverCore = $_SESSION['setup_dol']['core'] ?? '';
 $serverCoreLabel = match ($serverCore) {
     'opendaoc' => 'OpenDAoC',
-    'dol'      => 'Dawn of Light (legacy)',
+    'dol'      => 'Dawn of Light',
     default    => 'Not selected',
 };
 
@@ -131,7 +132,7 @@ foreach (['setup_db', 'setup_dol', 'setup_config', 'setup_crypto', 'setup_admin'
         <span class="m-num">03</span>
         <span class="m-body">
             <b>Log in and change nothing yet.</b>
-            Check that the administrator account works and that the site can reach your DOL database
+            Check that the administrator account works and that the site can reach your game server database
             before you start configuring. If something is wrong, it is easier to find now than after
             fifty settings have changed.
         </span>

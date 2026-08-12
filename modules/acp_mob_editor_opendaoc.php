@@ -1,9 +1,10 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 
 // ── OpenDAoC edition ─────────────────────────────────────────────
 // Mirrors modules/acp_mob_editor.php, adjusted for the OpenDAoC schema
 // (see includes/game_server_compat.php for the setting that routes here).
-// Real differences from the legacy DOL edition, verified against
+// Real differences from the Dawn of Light edition, verified against
 // OpenDAoC/OpenDAoC-Database:
 //   - mob.MaxDistance does not exist in OpenDAoC; removed everywhere.
 //   - mob.FactionID exists in OpenDAoC and is now editable here.
@@ -1586,7 +1587,7 @@ if (isset($_GET['action'])) {
                         <div id="patrol-npc-results" class="patrol-npc-results"></div>
                         <div id="patrol-npc-selected" class="patrol-npc-selected"><?= h(t('mobeditor.patrol.no_npc_selected', [], 'No NPC selected.')) ?></div>
                     </div>
-                    <input type="text" id="patrol-label" placeholder="<?= h(t('mobeditor.patrol.route_name_pathid', [], 'Route name / DOL PathID…')) ?>" class="acp-s-daf10a43" maxlength="255">
+                    <input type="text" id="patrol-label" placeholder="<?= h(t('mobeditor.patrol.route_name_pathid', [], 'Route name / Path ID…')) ?>" class="acp-s-daf10a43" maxlength="255">
                     <select id="patrol-path-type" class="patrol-path-type">
                         <option value="2" selected><?= h(t('mobeditor.patrol.path_reverse', [], 'Reverse (back and forth)')) ?></option>
                         <option value="3"><?= h(t('mobeditor.patrol.path_loop', [], 'Loop')) ?></option>
@@ -1644,7 +1645,7 @@ if (isset($_GET['action'])) {
                             <div id="e2d-patrol-npc-selected" class="patrol-npc-selected"><?= h(t('mobeditor.patrol.no_npc_selected', [], 'No NPC selected.')) ?></div>
                         </div>
 
-                        <div class="e2d-section-title"><?= h(t('mobeditor.patrol.route_name_pathid', [], 'Route name / DOL PathID')) ?></div>
+                        <div class="e2d-section-title"><?= h(t('mobeditor.patrol.route_name_pathid', [], 'Route name / Path ID')) ?></div>
                         <input type="text" id="e2d-patrol-label" placeholder="<?= h(t('mobeditor.patrol.route_example_placeholder', [], 'e.g. Outer Wall Patrol')) ?>" maxlength="255">
 
                         <div class="e2d-section-title"><?= h(t('mobeditor.patrol.path_type', [], 'Path Type')) ?></div>

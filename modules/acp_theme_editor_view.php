@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 if ($userPriv < 4) { echo '<div class="acp-empty">' . t('general_access_denied', [], 'Access denied') . '</div>'; return; }
 if (isset($_GET['ajax'])) return;

@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: GPL-3.0-only
 SET NAMES utf8mb4;
 START TRANSACTION;
 

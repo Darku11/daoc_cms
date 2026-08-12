@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 ob_start();
 require_once('includes/db.php');
 

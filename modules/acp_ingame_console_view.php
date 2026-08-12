@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 if ($userPriv < 4) { echo '<div class="acp-empty">' . t('igc_access_denied', [], 'Access denied.') . '</div>'; return; }
 
@@ -229,7 +230,7 @@ $igc_token = generateToken();
         <?php if ($userPriv >= 5): ?>
         <!-- Raw Command (SuperAdmin only) -->
         <div class="igc-panel igc-panel--wide igc-panel--danger">
-            <div class="igc-panel-title"><i class="fas fa-skull"></i> <?= t('igc_raw_title', [], 'Raw DOL Command') ?> <span class="igc-superadmin-badge"><?= t('igc_superadmin_badge', [], 'SUPERADMIN') ?></span></div>
+            <div class="igc-panel-title"><i class="fas fa-skull"></i> <?= t('igc_raw_title', [], 'Raw Game Server Command') ?> <span class="igc-superadmin-badge"><?= t('igc_superadmin_badge', [], 'SUPERADMIN') ?></span></div>
             <div class="igc-panel-body igc-panel-body--row">
                 <input type="text" id="igc-raw-executor" class="igc-input acp-s-74286440"
                        placeholder="<?= t('igc_placeholder_executor', [], 'Executor (optional)') ?>">

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 declare(strict_types=1);
 
 if (defined('DAOC_GAME_SERVER_COMPAT_LOADED')) {
@@ -10,7 +11,7 @@ define('DAOC_GAME_SERVER_COMPAT_LOADED', true);
  * Return the configured emulator family.
  *
  * Existing RC1 installations have no setting yet and therefore remain on the
- * legacy DOL behavior until an administrator deliberately selects OpenDAoC.
+ * Dawn of Light behavior until an administrator deliberately selects OpenDAoC.
  */
 function daoc_game_server_core(): string
 {

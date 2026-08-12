@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) { exit; }
 if (($GLOBALS['cms_settings']['mod_forum'] ?? '1') === '0' && ($GLOBALS['userPriv'] ?? 0) < 4) {
     echo '<div class="info-msg">' . t('general.module_disabled', [], 'This section is currently not available.') . '</div>';
@@ -9,12 +10,14 @@ if (!isset($forum_structure)) {
     return;
 }
 $forum_stats  = $forum_stats  ?? ['total_threads'=>0,'total_posts'=>0,'total_members'=>0,'newest_member'=>''];
-$latest_posts = $latest_posts ?? [];
-$online_users = $online_users ?? [];
+$latest_posts   = $latest_posts   ?? [];
+$recent_members = $recent_members ?? [];
+$online_users   = $online_users   ?? [];
 
 $show_stats_strip  = ($spike_settings['stats_strip_enabled']  ?? '1') === '1';
 $show_latest_posts = ($spike_settings['latest_posts_enabled'] ?? '1') === '1';
 ?>
+<style>.spk-board-graphic{width:48px;height:48px;object-fit:cover;border-radius:5px;display:block;box-shadow:0 0 0 1px rgba(197,160,89,.22);}</style>
 
 <div class="spk-wrap">
 
@@ -66,7 +69,15 @@ $show_latest_posts = ($spike_settings['latest_posts_enabled'] ?? '1') === '1';
             ?>
             <div class="spk-board" onclick="window.location.href='?p=viewboard&id=<?= (int)$board['id'] ?>'">
                 <div class="spk-board-icon">
+                    <?php if (!empty($board['graphic_url'])): ?>
+                        <img src="<?= h($board['graphic_url']) ?>" alt="" loading="lazy" style="width:46px;height:46px;object-fit:cover;border-radius:4px;display:block;">
+                    <?php else: ?>
+                        <?php if (!empty($board['graphic_url'])): ?>
+                    <img src="<?= h($board['graphic_url']) ?>" class="spk-board-graphic" alt="" loading="lazy">
+                    <?php else: ?>
                     <i class="fas <?= $can_post ? 'fa-scroll' : 'fa-book-reader' ?>"></i>
+                    <?php endif; ?>
+                    <?php endif; ?>
                 </div>
                 <div class="spk-board-info">
                     <div class="spk-board-name">
@@ -138,6 +149,25 @@ $show_latest_posts = ($spike_settings['latest_posts_enabled'] ?? '1') === '1';
                         <div class="spk-latest-by">
                             <span class="spk-latest-by-user" onclick="event.stopPropagation(); window.location.href='?p=user&id=<?= (int)$lp['author_id'] ?>'"><?= h($lp['username']) ?></span> · <?= date("d.m H:i", strtotime($lp['created_at'])) ?>
                         </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($recent_members)): ?>
+            <div class="spk-sidebar-block">
+                <div class="spk-sidebar-head"><i class="fas fa-user-plus"></i><?= t('spike.new_members', [], 'New Members') ?></div>
+                <?php foreach ($recent_members as $member): ?>
+                <div class="spk-latest-item" onclick="window.location.href='?p=user&id=<?= (int)$member['id'] ?>'">
+                    <?php if (!empty($member['avatar_url'])): ?>
+                        <img src="<?= h($member['avatar_url']) ?>" class="spk-latest-avatar" alt="" loading="lazy">
+                    <?php else: ?>
+                        <div class="spk-latest-avatar-placeholder"><i class="fas fa-user"></i></div>
+                    <?php endif; ?>
+                    <div class="spk-latest-info">
+                        <div class="spk-latest-thread"><?= h($member['username']) ?></div>
+                        <div class="spk-latest-by"><?= t('spike.registered', [], 'Registered') ?> · <?= date('d.m.Y', strtotime($member['created_at'])) ?></div>
                     </div>
                 </div>
                 <?php endforeach; ?>

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
 /**
  * DAoC CMS - SC Advisor Engine
  * Universal data pack and calculation logic
@@ -15,7 +16,7 @@ const ScDataPack = {
         skill: 11
     },
 
-    // Map DOL bonus IDs to readable stats and categories
+    // Map DAoC bonus IDs to readable stats and categories
     // This list contains the most important IDs and can be extended by administrators.
     mapping: {
         // Core Stats

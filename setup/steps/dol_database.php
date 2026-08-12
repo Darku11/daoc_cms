@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 declare(strict_types=1);
 
 if (!isset($installer)) {
@@ -231,7 +232,7 @@ $publicChoiceEnabled = $core === '' || $publicSql['exists'];
     </div>
 
     <dl class="ledger">
-        <dt>Core</dt><dd><?= $core === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light (legacy)' ?></dd>
+        <dt>Core</dt><dd><?= $core === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light' ?></dd>
         <dt>Server</dt><dd><?= htmlspecialchars($host) ?>:<?= (int) $port ?></dd>
         <dt>Database</dt><dd><?= htmlspecialchars($dbName) ?></dd>
         <?php if (($report['mode'] ?? '') === 'existing'): ?>
@@ -285,7 +286,7 @@ $publicChoiceEnabled = $core === '' || $publicSql['exists'];
                     <span class="choice-mark" aria-hidden="true"></span>
                     <span class="choice-body">
                         <b>Dawn of Light</b>
-                        <span>Use the legacy DOL database structure and bundled DOL world database.</span>
+                        <span>Use the Dawn of Light database structure and bundled DOL world database.</span>
                     </span>
                 </label>
             </div>
@@ -354,7 +355,7 @@ $publicChoiceEnabled = $core === '' || $publicSql['exists'];
                     <span id="dolPublicDescription"><?= $core === ''
                         ? 'Choose OpenDAoC or Dawn of Light before selecting a bundled database.'
                         : ($publicSql['exists']
-                            ? 'Imports ' . htmlspecialchars((string) $publicSql['file']) . ' (' . htmlspecialchars((string) $publicSql['size']) . '). Use this for a brand new ' . ($core === 'opendaoc' ? 'OpenDAoC' : 'legacy DOL') . ' shard.'
+                            ? 'Imports ' . htmlspecialchars((string) $publicSql['file']) . ' (' . htmlspecialchars((string) $publicSql['size']) . '). Use this for a brand new ' . ($core === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light') . ' shard.'
                             : 'Unavailable — sql/' . htmlspecialchars((string) $publicSql['file']) . ' is not in this setup package.') ?></span>
                     <span class="choice-tag choice-tag--danger">Requires an empty database</span>
                 </span>
@@ -444,7 +445,7 @@ $publicChoiceEnabled = $core === '' || $publicSql['exists'];
             });
 
             var coreName = coreValue === 'opendaoc' ? 'OpenDAoC' : 'DOL';
-            var shardName = coreValue === 'opendaoc' ? 'OpenDAoC' : 'legacy DOL';
+            var shardName = coreValue === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light';
 
             if (publicTitle) {
                 publicTitle.textContent = coreValue === ''

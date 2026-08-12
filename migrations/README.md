@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
 # Database migrations
 
 DAoC CMS database updates are applied by the CLI migration runner in `migrate.php`.

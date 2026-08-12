@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 // IN_CMS guard + absolute path instead of relative '../includes/db.php'
 if (!defined('IN_CMS')) {
     define('IN_CMS', true);

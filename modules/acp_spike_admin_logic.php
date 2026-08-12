@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 if ((int)($userPriv ?? 0) < 2) {
     header("Location: index.php?p=home"); exit;
@@ -6,6 +7,14 @@ if ((int)($userPriv ?? 0) < 2) {
 
 function logAdminAction(string $type, string $details): void {
     aldhran_log($type, $details, (int)($_SESSION['user_id'] ?? 0));
+}
+
+function spikeBoardGraphicValue(string $value): ?string {
+    $value = trim($value);
+    if ($value === '') return '';
+    if (mb_strlen($value) > 255 || preg_match('/[\x00-\x1F<>"\']/', $value)) return null;
+    if (preg_match('/^[a-z][a-z0-9+.-]*:/i', $value) && !preg_match('#^https?://#i', $value)) return null;
+    return $value;
 }
 
 $ajax_action = $_POST['ajax_action'] ?? '';
@@ -20,7 +29,7 @@ if (!empty($ajax_action)) {
 
     $need4 = ['update_matrix','sort_cats','sort_boards','recalc','purge_preview','purge_execute',
               'inline_update','move_board','delete_cat','delete_board','create_cat','create_board',
-              'toggle_board_approval','save_settings','update_smilies',
+              'toggle_board_approval','save_board_graphic','save_settings','update_smilies',
               'create_prefix','delete_prefix','toggle_prefix','update_prefix',
               'create_smiley','delete_smiley','toggle_smiley',
               'merge_threads','move_post','clear_search_log','cleanup_read_markers'];
@@ -127,7 +136,41 @@ if (!empty($ajax_action)) {
         $field = $_POST['field']??''; $id=(int)$_POST['record_id']; $value=trim($_POST['value']??'');
         if ($field==='cat_title'&&$id>0) { $db->prepare("UPDATE spike_categories SET title=? WHERE id=?")->execute([$value,$id]); echo 'SUCCESS'; }
         elseif (in_array($field,['board_title','board_desc'],true)&&$id>0) { $col=($field==='board_title')?'title':'description'; $db->prepare("UPDATE spike_boards SET $col=? WHERE id=?")->execute([$value,$id]); echo 'SUCCESS'; }
+        elseif ($field==='board_graphic'&&$id>0) {
+            $graphic = spikeBoardGraphicValue($value);
+            if ($graphic === null) echo 'ERROR: Invalid graphic path/URL.';
+            else { $db->prepare("UPDATE spike_boards SET graphic_url=? WHERE id=?")->execute([$graphic === '' ? null : $graphic,$id]); echo 'SUCCESS'; }
+        }
         else echo 'ERROR: Unknown field.';
+        exit;
+    }
+
+    if ($ajax_action === 'save_board_graphic') {
+        header('Content-Type: application/json');
+        $board_id = (int)($_POST['board_id'] ?? 0);
+        $graphic = trim((string)($_POST['graphic'] ?? ''));
+
+        if ($board_id <= 0) {
+            echo json_encode(['error' => 'invalid_board']); exit;
+        }
+
+        $board_stmt = $db->prepare("SELECT id FROM spike_boards WHERE id=? LIMIT 1");
+        $board_stmt->execute([$board_id]);
+        if (!$board_stmt->fetchColumn()) {
+            echo json_encode(['error' => 'board_not_found']); exit;
+        }
+
+        if ($graphic !== '' && (
+            mb_strlen($graphic) > 255
+            || preg_match('/[\'"()\\\\\s<>]/', $graphic)
+            || preg_match('/^\s*(javascript|data|vbscript):/i', $graphic)
+        )) {
+            echo json_encode(['error' => 'invalid_graphic']); exit;
+        }
+        $save_stmt = $db->prepare("UPDATE spike_boards SET graphic_url=? WHERE id=?");
+        $save_stmt->execute([$graphic === '' ? null : $graphic, $board_id]);
+        logAdminAction('BOARD_GRAPHIC', $graphic === '' ? "Removed graphic from board $board_id" : "Updated graphic for board $board_id");
+        echo json_encode(['ok' => true, 'graphic' => $graphic]);
         exit;
     }
 
@@ -179,8 +222,9 @@ if (!empty($ajax_action)) {
     }
 
     if ($ajax_action === 'create_board') {
-        $cat=(int)($_POST['target_cat_id']??0); $title=trim($_POST['board_title']??''); $desc=trim($_POST['board_desc']??'');
-        if($cat>0&&!empty($title)){$ms=$db->prepare("SELECT COALESCE(MAX(pos),0) FROM spike_boards WHERE cat_id=?"); $ms->execute([$cat]); $max=(int)$ms->fetchColumn(); $db->prepare("INSERT INTO spike_boards (cat_id,title,description,pos,min_priv,min_priv_post) VALUES (?,?,?,?,1,1)")->execute([$cat,$title,$desc,$max+1]); logAdminAction('CREATE_BOARD',"Created '$title'"); echo 'SUCCESS';}
+        $cat=(int)($_POST['target_cat_id']??0); $title=trim($_POST['board_title']??''); $desc=trim($_POST['board_desc']??''); $graphic=spikeBoardGraphicValue((string)($_POST['board_graphic']??''));
+        if($graphic===null){echo 'ERROR: Invalid graphic path/URL.';exit;}
+        if($cat>0&&!empty($title)){$ms=$db->prepare("SELECT COALESCE(MAX(pos),0) FROM spike_boards WHERE cat_id=?"); $ms->execute([$cat]); $max=(int)$ms->fetchColumn(); $db->prepare("INSERT INTO spike_boards (cat_id,title,description,graphic_url,pos,min_priv,min_priv_post) VALUES (?,?,?,?,?,1,1)")->execute([$cat,$title,$desc,$graphic,$max+1]); logAdminAction('CREATE_BOARD',"Created '$title'"); echo 'SUCCESS';}
         else echo 'ERROR: Cat ID and title required.';
         exit;
     }

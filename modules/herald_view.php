@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 
 if (($GLOBALS['cms_settings']['mod_herald'] ?? '1') === '0' && ($GLOBALS['userPriv'] ?? 0) < 4) {

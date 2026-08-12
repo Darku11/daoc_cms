@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 require_once('includes/db.php');
 $pve_counts   = daoc_game_pve_counts($db);
 $stats_mobs   = $pve_counts['mobs'];

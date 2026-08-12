@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 // ── Access control ──────────────────────────────────────────
 // CLI: allowed
 // HTTP: localhost only (internal use)

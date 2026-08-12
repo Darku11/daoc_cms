@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 if ($userPriv < 4) exit;
 require_once __DIR__ . '/../includes/theme_chain.php';

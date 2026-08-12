@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 
 if (!defined('IN_CMS')) { exit; }
 
@@ -96,7 +97,10 @@ $report_open_count  = count(array_filter($open_reports, fn($r) => $r['status'] =
               ?>
               <tr class="board-item" draggable="true" data-id="<?= $b['id'] ?>">
                 <td><i class="fas fa-grip-lines sa-drag"></i></td>
-                <td class="sa-td-title"><input class="sa-inline-input" value="<?= h($b['title']) ?>" onblur="inlineUpdate('board_title',<?= $b['id'] ?>,this.value)"></td>
+                <td class="sa-td-title">
+                  <input class="sa-inline-input" value="<?= h($b['title']) ?>" onblur="inlineUpdate('board_title',<?= $b['id'] ?>,this.value)">
+                  <input class="sa-inline-input" style="margin-top:5px;font-size:11px;color:var(--parch-muted);" value="<?= h($b['graphic_url']??'') ?>" placeholder="Graphic path / URL" onblur="inlineUpdate('board_graphic',<?= $b['id'] ?>,this.value)">
+                </td>
                 <td><input class="sa-inline-input" style="color:var(--parch-muted);width:100%;" value="<?= h($b['description']??'') ?>" onblur="inlineUpdate('board_desc',<?= $b['id'] ?>,this.value)"></td>
                 <td class="sa-td-num"><?= (int)$tc->fetchColumn() ?></td>
                 <td class="sa-td-num"><?= (int)$pc->fetchColumn() ?></td>
@@ -104,6 +108,7 @@ $report_open_count  = count(array_filter($open_reports, fn($r) => $r['status'] =
                 <td class="sa-td-num"><span class="sa-priv-badge">Lv<?= (int)$b['min_priv_post'] ?></span></td>
                 <td class="sa-td-actions" style="white-space:nowrap;">
                   <button class="sa-smiley-toggle <?= !empty($b['require_approval'])?'active':'' ?>" onclick="toggleBoardApproval(<?= $b['id'] ?>,this)" title="Require Approval for New Threads" style="margin-right:8px;"><i class="fas fa-user-shield"></i></button>
+                  <button class="sa-btn" onclick='saBoardGraphicPrompt(<?= (int)$b['id'] ?>, <?= json_encode((string)($b['graphic_url'] ?? '')) ?>)' title="Set board graphic" style="margin-right:8px;"><i class="fas fa-image"></i> Graphic</button>
                   <button class="sa-btn sa-btn-gold" onclick="saMoveBoardPrompt(<?= $b['id'] ?>,<?= $cat['id'] ?>)"><i class="fas fa-arrow-right"></i> Move</button>
                   <button class="sa-btn sa-btn-red" onclick="if(confirm('<?= t('spike_admin.arch_confirm_delete_board', [], 'Delete board? All posts will be lost!') ?>')) deleteBoard(<?= $b['id'] ?>)"><i class="fas fa-trash"></i></button>
                 </td>
@@ -123,6 +128,7 @@ $report_open_count  = count(array_filter($open_reports, fn($r) => $r['status'] =
         <div class="sa-field"><label class="sa-label"><?= t('spike_admin.arch_label_category', [], 'Category') ?></label><select id="new-board-cat" class="sa-select"><?php foreach($all_cats as $mc): ?><option value="<?= $mc['id'] ?>"><?= h($mc['title']) ?></option><?php endforeach; ?></select></div>
         <div class="sa-field"><label class="sa-label"><?= t('spike_admin.arch_label_title', [], 'Title') ?></label><input type="text" id="new-board-title" class="sa-input" placeholder="<?= t('spike_admin.arch_placeholder_board', [], 'Board name...') ?>"></div>
         <div class="sa-field"><label class="sa-label"><?= t('spike_admin.arch_label_description', [], 'Description') ?></label><input type="text" id="new-board-desc" class="sa-input" placeholder="<?= t('spike_admin.arch_placeholder_desc', [], 'Short description...') ?>"></div>
+        <div class="sa-field"><label class="sa-label">Graphic</label><input type="text" id="new-board-graphic" class="sa-input" placeholder="assets/img/... or https://..."></div>
         <div><button onclick="createBoard()" class="sa-btn sa-btn-gold" style="height:36px;padding:0 18px;"><i class="fas fa-plus"></i> <?= t('spike_admin.arch_btn_create_board', [], 'CREATE BOARD') ?></button><span class="sa-status" id="new-board-status"></span></div>
       </div>
     </div>
@@ -749,7 +755,7 @@ function toggleBoardApproval(id,btn){
 
 function inlineUpdate(field,id,value){const fd=new FormData();fd.append('ajax_action','inline_update');fd.append('csrf_token',spikeToken);fd.append('field',field);fd.append('record_id',id);fd.append('value',value);fetch('acp.php?s=spike_admin',{method:'POST',body:fd}).catch(function(e){console.error('fetch failed:',e);alert('Action failed: '+(e&&e.message?e.message:e));});}
 function createCat(){const title=document.getElementById('new-cat-title').value.trim();const status=document.getElementById('new-cat-status');if(!title){status.innerHTML='Required';status.style.color='var(--red)';return;}const fd=new FormData();fd.append('ajax_action','create_cat');fd.append('csrf_token',spikeToken);fd.append('cat_title',title);fetch('acp.php?s=spike_admin',{method:'POST',body:fd}).then(r=>r.text()).then(d=>{status.innerHTML=d.includes('SUCCESS')?'✓ Created':'Error';status.style.color=d.includes('SUCCESS')?'var(--gold)':'var(--red)';if(d.includes('SUCCESS'))setTimeout(()=>location.reload(),700);}).catch(function(e){console.error('fetch failed:',e);alert('Action failed: '+(e&&e.message?e.message:e));});}
-function createBoard(){const catId=document.getElementById('new-board-cat').value;const title=document.getElementById('new-board-title').value.trim();const desc=document.getElementById('new-board-desc').value.trim();const status=document.getElementById('new-board-status');if(!title){status.innerHTML='Required';status.style.color='var(--red)';return;}const fd=new FormData();fd.append('ajax_action','create_board');fd.append('csrf_token',spikeToken);fd.append('target_cat_id',catId);fd.append('board_title',title);fd.append('board_desc',desc);fetch('acp.php?s=spike_admin',{method:'POST',body:fd}).then(r=>r.text()).then(d=>{status.innerHTML=d.includes('SUCCESS')?'✓ Created':'Error';status.style.color=d.includes('SUCCESS')?'var(--gold)':'var(--red)';if(d.includes('SUCCESS'))setTimeout(()=>location.reload(),700);}).catch(function(e){console.error('fetch failed:',e);alert('Action failed: '+(e&&e.message?e.message:e));});}
+function createBoard(){const catId=document.getElementById('new-board-cat').value;const title=document.getElementById('new-board-title').value.trim();const desc=document.getElementById('new-board-desc').value.trim();const graphic=document.getElementById('new-board-graphic').value.trim();const status=document.getElementById('new-board-status');if(!title){status.innerHTML='Required';status.style.color='var(--red)';return;}const fd=new FormData();fd.append('ajax_action','create_board');fd.append('csrf_token',spikeToken);fd.append('target_cat_id',catId);fd.append('board_title',title);fd.append('board_desc',desc);fd.append('board_graphic',graphic);fetch('acp.php?s=spike_admin',{method:'POST',body:fd}).then(r=>r.text()).then(d=>{status.innerHTML=d.includes('SUCCESS')?'✓ Created':'Error';status.style.color=d.includes('SUCCESS')?'var(--gold)':'var(--red)';if(d.includes('SUCCESS'))setTimeout(()=>location.reload(),700);}).catch(function(e){console.error('fetch failed:',e);alert('Action failed: '+(e&&e.message?e.message:e));});}
 function deleteCat(id){const fd=new FormData();fd.append('ajax_action','delete_cat');fd.append('csrf_token',spikeToken);fd.append('cat_id',id);fetch('acp.php?s=spike_admin',{method:'POST',body:fd}).then(()=>location.reload()).catch(function(e){console.error('fetch failed:',e);alert('Action failed: '+(e&&e.message?e.message:e));});}
 function deleteBoard(id){const fd=new FormData();fd.append('ajax_action','delete_board');fd.append('csrf_token',spikeToken);fd.append('board_id',id);fetch('acp.php?s=spike_admin',{method:'POST',body:fd}).then(()=>location.reload()).catch(function(e){console.error('fetch failed:',e);alert('Action failed: '+(e&&e.message?e.message:e));});}
 function saMoveBoardPrompt(boardId,currentCatId){document.getElementById('move-board-id').value=boardId;document.getElementById('move-board-cat').value=currentCatId;document.getElementById('sa-move-overlay').classList.add('active');}
@@ -973,6 +979,26 @@ let draggedBoard=null,draggedBoardOriginCat=null;
 function initBoardSort(){document.querySelectorAll('.board-sort-container').forEach(container=>{container.addEventListener('dragstart',e=>{if(e.target.classList.contains('board-item')){draggedBoard=e.target;draggedBoardOriginCat=container.dataset.catid;e.target.classList.add('dragging');e.stopPropagation();}});container.addEventListener('dragend',e=>{if(!draggedBoard)return;draggedBoard.classList.remove('dragging');const newCatId=container.dataset.catid;if(newCatId!==draggedBoardOriginCat){const fd=new FormData();fd.append('ajax_action','move_board');fd.append('csrf_token',spikeToken);fd.append('board_id',draggedBoard.dataset.id);fd.append('new_cat_id',newCatId);fetch('acp.php?s=spike_admin',{method:'POST',body:fd}).catch(function(e){console.error('fetch failed:',e);alert('Action failed: '+(e&&e.message?e.message:e));});}const order=[...container.querySelectorAll('.board-item')].map(i=>i.dataset.id);const fd2=new FormData();fd2.append('ajax_action','sort_boards');fd2.append('csrf_token',spikeToken);fd2.append('target_cat_id',newCatId);order.forEach((id,i)=>fd2.append('order['+i+']',id));fetch('acp.php?s=spike_admin',{method:'POST',body:fd2}).catch(function(e){console.error('fetch failed:',e);alert('Action failed: '+(e&&e.message?e.message:e));});draggedBoard=null;draggedBoardOriginCat=null;e.stopPropagation();});container.addEventListener('dragover',e=>{e.preventDefault();const after=getDragAfter(container,e.clientY,'.board-item');if(draggedBoard){if(!after)container.appendChild(draggedBoard);else container.insertBefore(draggedBoard,after);}e.stopPropagation();});});}
 function getDragAfter(container,y,sel){return[...container.querySelectorAll(sel+':not(.dragging)')].reduce((closest,child)=>{const offset=y-child.getBoundingClientRect().top-child.getBoundingClientRect().height/2;if(offset<0&&offset>closest.offset)return{offset,element:child};return closest;},{offset:Number.NEGATIVE_INFINITY}).element;}
 initBoardSort();
+
+function saBoardGraphicPrompt(boardId, currentGraphic) {
+    const value = window.prompt('Board graphic path or URL. Leave empty to remove the custom graphic.', currentGraphic || '');
+    if (value === null) return;
+
+    const fd = new FormData();
+    fd.append('ajax_action', 'save_board_graphic');
+    fd.append('board_id', String(boardId));
+    fd.append('graphic', value.trim());
+    fd.append('csrf_token', '<?= $spike_token ?>');
+
+    fetch('acp.php?s=spike_admin', {method: 'POST', body: fd})
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok) throw new Error(data.error || 'Could not save board graphic.');
+            window.location.reload();
+        })
+        .catch(err => alert(err.message || String(err)));
+}
+
 </script>
 <?php
 $ai_ext = __DIR__ . '/spike_admin_ai_extension.php';

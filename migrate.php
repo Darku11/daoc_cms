@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);

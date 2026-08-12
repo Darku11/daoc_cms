@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if ((int)($_SESSION['priv_level'] ?? 0) < 3) return;
 $is_super_user = (isset($_SESSION['priv_level']) && $_SESSION['priv_level'] >= 5);
 $ajax_token    = generateToken();

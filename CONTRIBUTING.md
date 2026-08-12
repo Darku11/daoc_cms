@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
 # Contributing to DAoC CMS
 
 Thank you for your interest in contributing to DAoC CMS!

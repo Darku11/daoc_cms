@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: GPL-3.0-only
 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT;
 SET NAMES utf8;
 SET NAMES utf8mb4;
@@ -1334,7 +1335,7 @@ INSERT INTO `cms_translations` (`id`, `lang_code`, `var_context`, `var_key`, `va
 	(1054, 'de', 'core', 'herald_char.guild_label', 'Gilde'),
 	(1055, 'de', 'core', 'herald_char.guild_none', 'Keine'),
 	(1056, 'de', 'core', 'herald_char.footer_v2', 'Chronik-Daten mit dem DAoC CMS-Spielserver synchronisiert.'),
-	(1057, 'en', 'core', 'herald_v089.table_not_found', 'Table \'keep\' not found. Please check your DOL database.'),
+	(1057, 'en', 'core', 'herald_v089.table_not_found', 'Table \'keep\' not found. Please check your game server database.'),
 	(1058, 'en', 'core', 'herald_v089.col_name', 'NAME'),
 	(1059, 'en', 'core', 'herald_v089.col_class', 'CLASS'),
 	(1060, 'en', 'core', 'herald_v089.col_realm', 'REALM'),
@@ -3002,7 +3003,7 @@ INSERT INTO `cms_translations` (`id`, `lang_code`, `var_context`, `var_key`, `va
 	(6100, 'en', 'core', 'herald_alt.sql_error', 'SQL Error in Herald'),
 	(6101, 'en', 'core', 'herald_alt.query', 'Query: '),
 	(6102, 'en', 'core', 'herald_alt.error', 'Error: '),
-	(6103, 'en', 'core', 'herald_alt.keep_not_found', 'Table \'keep\' not found. Please check your DOL database.'),
+	(6103, 'en', 'core', 'herald_alt.keep_not_found', 'Table \'keep\' not found. Please check your game server database.'),
 	(6104, 'en', 'core', 'herald_alt.realm.albion', 'Albion'),
 	(6105, 'en', 'core', 'herald_alt.realm.midgard', 'Midgard'),
 	(6106, 'en', 'core', 'herald_alt.realm.hibernia', 'Hibernia'),
@@ -7338,7 +7339,7 @@ INSERT INTO `cms_translations` (`id`, `lang_code`, `var_context`, `var_key`, `va
 	(10979, 'en', 'igc', 'igc_priv_player', 'Player'),
 	(10980, 'en', 'igc', 'igc_priv_trial_gm', 'Trial GM'),
 	(10981, 'en', 'igc', 'igc_privlevel_title', 'PrivLevel'),
-	(10982, 'en', 'igc', 'igc_raw_title', 'Raw DOL Command'),
+	(10982, 'en', 'igc', 'igc_raw_title', 'Raw Game Server Command'),
 	(10983, 'en', 'igc', 'igc_refresh', 'Refresh'),
 	(10984, 'en', 'igc', 'igc_request_failed', 'Request failed:'),
 	(10985, 'en', 'igc', 'igc_server_offline', 'Server Offline'),
@@ -8202,7 +8203,7 @@ INSERT INTO `cms_translations` (`id`, `lang_code`, `var_context`, `var_key`, `va
 	(11857, 'en', 'core', 'mobeditor.patrol.npc_hint', 'Search for a spawned NPC, then record at least two route points on the map. NPCs remain hidden from the map.'),
 	(11858, 'en', 'core', 'mobeditor.patrol.npc_search_placeholder', 'Search NPC by name, guild or ID…'),
 	(11859, 'en', 'core', 'mobeditor.patrol.no_npc_selected', 'No NPC selected.'),
-	(11860, 'en', 'core', 'mobeditor.patrol.route_name_pathid', 'Route name / DOL PathID…'),
+	(11860, 'en', 'core', 'mobeditor.patrol.route_name_pathid', 'Route name / Path ID…'),
 	(11861, 'en', 'core', 'mobeditor.patrol.path_reverse', 'Reverse (back and forth)'),
 	(11862, 'en', 'core', 'mobeditor.patrol.path_loop', 'Loop'),
 	(11863, 'en', 'core', 'mobeditor.patrol.path_once', 'Once'),
@@ -9040,6 +9041,7 @@ CREATE TABLE IF NOT EXISTS `spike_boards` (
   `title` varchar(255) NOT NULL,
   `slug` varchar(255) DEFAULT NULL,
   `description` text DEFAULT NULL,
+  `graphic_url` varchar(255) DEFAULT NULL,
   `description_html` text DEFAULT NULL,
   `pos` int(11) DEFAULT 0,
   `require_approval` tinyint(1) NOT NULL DEFAULT 0,

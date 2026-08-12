@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 
 // Fallback: pull $userPriv/$currentUserId from session if not already in scope

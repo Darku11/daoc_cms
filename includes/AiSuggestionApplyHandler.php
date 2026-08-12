@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 /**
  * AiSuggestionApplyHandler.php – DAoC CMS
  *

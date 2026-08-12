@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 use PHPUnit\Framework\TestCase;
 
 class DeviceCheckTest extends TestCase

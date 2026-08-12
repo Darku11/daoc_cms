@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 ?>
 <?php
@@ -176,7 +177,7 @@ $err_key = $_GET['err'] ?? '';
                                             <label class="acp-s-26590802"><input type="radio" name="restore_mode" value="all" checked> <?= t('backup_restore_all', [], 'Files + Database') ?></label>
                                             <label class="acp-s-26590802"><input type="radio" name="restore_mode" value="db"> <?= t('backup_restore_db', [], 'Database only') ?></label>
                                             <label class="acp-s-26590802"><input type="radio" name="restore_mode" value="acp"> <?= t('backup_restore_acp', [], 'ACP files only') ?></label>
-                                            <label class="acp-s-26590802"><input type="radio" name="restore_mode" value="dol"> <?= t('backup_restore_dol', [], 'DOL data only') ?></label>
+                                            <label class="acp-s-26590802"><input type="radio" name="restore_mode" value="dol"> <?= t('backup_restore_dol', [], 'Game server data only') ?></label>
                                         </div>
 
                                         <div class="acp-s-22b8d13a">

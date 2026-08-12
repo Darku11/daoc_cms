@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 require_once('includes/db.php');
 
 $error   = "";
@@ -33,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user) {
     } else {
         $cms_hash = aldhran_hash($new_pass);
 
-        // DOL sync hash
+        // Game account sync hash
         $res = "";
         for ($i = 0; $i < strlen($new_pass); $i++) { $res .= $new_pass[$i] . chr(0); }
         $dol_final_hash = "##" . strtoupper(md5($res));
@@ -43,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user) {
             $db->prepare("UPDATE users SET password = ?, reset_token = NULL, reset_expiry = NULL WHERE id = ?")
                ->execute([$cms_hash, $user['id']]);
 
-            // DOL sync
+            // Game account sync
             $db->prepare("UPDATE account SET Password = ?, Status = 1 WHERE Name = ?")
                ->execute([$dol_final_hash, $user['username']]);
 

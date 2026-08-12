@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 function checkQuery($db, $result, $query) {
     if (!$result) {
         die("<div class='admin-box' style='border-color: red;'>
@@ -25,7 +26,7 @@ if ($res_keeps) {
     
     $keeps_res = checkQuery($db, $db->query($q_status), $q_status);
 } else {
-    die("<div class='admin-box'>" . t('herald_alt.keep_not_found', [], 'Table \'keep\' not found. Please check your DOL database.') . "</div>");
+    die("<div class='admin-box'>" . t('herald_alt.keep_not_found', [], 'Table \'keep\' not found. Please check your game server database.') . "</div>");
 }
 
 $realm_counts = [1 => 0, 2 => 0, 3 => 0];

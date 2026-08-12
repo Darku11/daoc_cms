@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 
 if (($GLOBALS['cms_settings']['mod_imprint'] ?? '1') === '0') {

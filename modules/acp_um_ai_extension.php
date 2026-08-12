@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 
 $_um_ai_active = isset($botSettings) && $botSettings->isActive() && $botSettings->hasAiConfigured();

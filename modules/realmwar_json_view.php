@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 
 // ── Module guard ───────────────────────────────────────────────
@@ -16,7 +17,7 @@ while (ob_get_level()) { ob_end_clean(); }
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-// ── Keep map: slug → DOL KeepID ──────────────────────────────
+// ── Keep map: slug → DAoC KeepID ──────────────────────────────
 const RW_REALM_MAP = [0 => 'neutral', 1 => 'alb', 2 => 'mid', 3 => 'hib'];
 
 const RW_KEEP_ID_MAP = [

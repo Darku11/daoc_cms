@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!isset($_SESSION['user_id'])) return;
 
 $uid  = (int)$_SESSION['user_id'];
@@ -113,7 +114,7 @@ if (isset($_POST['update_profile']) && !$is_restricted) {
                 $db->prepare("UPDATE users SET password = ? WHERE id = ?")
                    ->execute([aldhran_hash($new_pw), $uid]);
 
-                // DOL hash: official workaround logic from the C# emulator
+                // Game account hash: official workaround logic from the C# emulator
                 $len = strlen($new_pw);
                 $res = "";
                 for ($i = 0; $i < $len; $i++) {
@@ -248,11 +249,11 @@ if (isset($_POST['delete_my_account']) && !$is_restricted) {
             $db->prepare("UPDATE spike_posts SET author_id = 0 WHERE author_id = ?")
                ->execute([$uid]);
 
-            // 2. Anonymize DOL characters in the emulator database.
+            // 2. Anonymize characters in the game server database.
             $db->prepare("UPDATE dolcharacters SET AccountName = 'DELETED_USER' WHERE AccountName = ?")
                ->execute([$uData['username']]);
 
-            // 3. Delete DOL emulator account
+            // 3. Delete game server account
             $db->prepare("DELETE FROM account WHERE Name = ?")
                ->execute([$uData['username']]);
 

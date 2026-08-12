@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (defined('ALDHRAN_ASSETS_LOADED')) return;
 define('ALDHRAN_ASSETS_LOADED', true);
 

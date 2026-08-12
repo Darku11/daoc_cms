@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
 blank_issues_enabled: false
 
 contact_links:

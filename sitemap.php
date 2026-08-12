@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 
 define('IN_CMS', true);
 require_once __DIR__ . '/includes/db.php';

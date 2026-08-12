@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 $_acp_auth = (defined('IN_ACP') && isset($userPriv) && $userPriv >= 4);
 $_cms_auth = (isset($can_edit) && $can_edit);
 if (!$_acp_auth && !$_cms_auth) return;

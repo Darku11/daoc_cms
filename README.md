@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
 # DAoC CMS
 
 **DAoC CMS** is an open-source Content Management System built specifically for **Dark Age of Camelot freeshards**.

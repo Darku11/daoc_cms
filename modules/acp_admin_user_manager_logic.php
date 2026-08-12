@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 
 $checkPriv = (int)($_SESSION['priv_level'] ?? 0);
@@ -57,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                        ->execute([$username]);
                 }
 
-                aldhran_log("STANDING_CHANGE", "Changed standing to $new_standing for user #$target_user_id (DOL sync)", $admin_id, $target_user_id);
+                aldhran_log("STANDING_CHANGE", "Changed standing to $new_standing for user #$target_user_id (game account sync)", $admin_id, $target_user_id);
                 $db->commit();
 
             } catch (Exception $e) {
@@ -88,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $db->prepare("UPDATE account SET PrivLevel = ? WHERE Name = ?")
                    ->execute([$new_priv, $username]);
 
-                aldhran_log("PRIV_CHANGE", "Set PrivLevel to $new_priv for user #$target_user_id (DOL sync)", $admin_id, $target_user_id);
+                aldhran_log("PRIV_CHANGE", "Set PrivLevel to $new_priv for user #$target_user_id (game account sync)", $admin_id, $target_user_id);
                 $db->commit();
 
             } catch (Exception $e) {

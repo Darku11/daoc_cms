@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 declare(strict_types=1);
 
 if (!isset($installer)) {
@@ -20,7 +21,7 @@ $error = '';
 $serverCore = $_SESSION['setup_dol']['core'] ?? '';
 $serverCoreLabel = match ($serverCore) {
     'opendaoc' => 'OpenDAoC',
-    'dol'      => 'Dawn of Light (legacy)',
+    'dol'      => 'Dawn of Light',
     default    => 'Not selected',
 };
 

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 
 if (!isset($_GET['ajax']) || $_GET['ajax'] !== '1') return;

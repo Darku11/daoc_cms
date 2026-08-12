@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 define('IN_CMS', true);
 require_once('includes/db.php');
 
@@ -37,7 +38,7 @@ try {
 $console_host   = $cfg['game_server_console_host']   ?? '127.0.0.1';
 $console_port   = (int)($cfg['game_server_console_port']   ?? 5100);
 $console_secret = $cfg['game_server_console_secret'] ?? 'CHANGE_ME_IN_APPSETTINGS';
-$bat_path       = $cfg['game_server_bat_path']        ?? '';
+$startup_path       = $cfg['game_server_bat_path']        ?? '';
 
 // ── POST to AldhranConsole /restart ───────────────────────────
 $payload = json_encode([
@@ -83,15 +84,15 @@ if (!($decoded['ok'] ?? false)) {
     echo json_encode(['ok' => false, 'error' => $decoded['error'] ?? 'Console error']); exit;
 }
 
-// ── .bat launcher: countdown + restart buffer ─────────────────
-if ($bat_path !== '' && file_exists($bat_path)) {
+// ── Startup launcher: countdown + restart buffer ─────────────
+if ($startup_path !== '' && file_exists($startup_path)) {
     $wait_seconds = ($delay_minutes * 60) + 42;
     $php_bin      = PHP_BINARY;
     $launcher     = __DIR__ . '/includes/restart_launcher.php';
     $cmd = escapeshellcmd($php_bin)
          . ' ' . escapeshellarg($launcher)
          . ' ' . (int)$wait_seconds
-         . ' ' . escapeshellarg($bat_path);
+         . ' ' . escapeshellarg($startup_path);
 
     if (PHP_OS_FAMILY === 'Windows') {
         pclose(popen('start /B "" ' . $cmd, 'r'));

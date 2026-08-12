@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 /**
  * TEMPLATE ENGINE - DAoC CMS
  * Native PHP Templating with Secure Theme Override Support

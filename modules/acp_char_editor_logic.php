@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 
 if (!isset($userPriv) || $userPriv < 3) {
@@ -26,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = $_POST['quick_action'];
         $qa_val = trim($_POST['qa_value'] ?? '');
         
-        // Hook in DOL database or socket/ASP bridge logic here
+        // Hook in game server database or socket/ASP bridge logic here
         $actionMsg = "Quick Action executed: " . h($action) . (!empty($qa_val) ? " (Value: " . h($qa_val) . ")" : "");
         
         header("Location: acp.php?s=char_editor&edit=" . urlencode($charId) . "&msg=qa_done&qa_msg=" . urlencode($actionMsg));

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (($GLOBALS['cms_settings']['mod_faq'] ?? '1') === '0' && ($GLOBALS['userPriv'] ?? 0) < 4) {
     return;
 }

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 // Raw SVG markup for Britty's portrait medallion. Included directly (not linked)
 // so it inlines into the page — no extra request, and colors stay themeable
 // alongside cinematic.css without a separate build step.

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) { exit; }
 
 $target_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;

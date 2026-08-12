@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 declare(strict_types=1);
 
 namespace DAoCCMS\Setup;

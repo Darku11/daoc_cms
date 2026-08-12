@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!isset($can_edit) || !$can_edit) return;
 $add_form_token = generateToken();
 $userPriv = (int)($_SESSION['priv_level'] ?? 0);

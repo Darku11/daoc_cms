@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 require_once(__DIR__ . '/includes/db.php');
 
 header('Content-Type: text/plain');

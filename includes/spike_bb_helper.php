@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 // ── parseBBCode ───────────────────────────────────────────────
 if (!function_exists('parseBBCode')) {
 function parseBBCode(string $text): string {

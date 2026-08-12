@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 class TOTP {
     private static $base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 // includes/cron_webshop_worker.php
 // Run with Windows Task Scheduler or cron every 30 to 60 seconds: php cron_webshop_worker.php
 

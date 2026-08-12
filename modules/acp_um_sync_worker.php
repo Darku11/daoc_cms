@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 $db_path = dirname(__DIR__) . '/includes/db.php';
 if (file_exists($db_path)) { require_once($db_path); }
 else { die(t('sync_worker_err_file_not_found', [], "Nexus Bridge Error: File not found at $db_path")); }
@@ -204,9 +205,9 @@ if (isset($_POST['um_action']) && $_POST['um_action'] === 'create_user') {
        ->execute([$u_name, trim($_POST['u_email']), $hash, $new_priv]);
     $res = "";
     for ($i = 0; $i < strlen($u_pass); $i++) { $res .= chr(0) . $u_pass[$i]; }
-    $dol_hash = "##" . strtoupper(md5($res));
+    $game_hash = "##" . strtoupper(md5($res));
     $db->prepare("INSERT INTO account (Name, Password, Status, PrivLevel, CreationDate) VALUES (?, ?, 1, ?, NOW())")
-       ->execute([$u_name, $dol_hash, $new_priv]);
+       ->execute([$u_name, $game_hash, $new_priv]);
     aldhran_log("USER_CREATED", "New user $u_name created by {$adminName}", $myUserId);
     echo "SUCCESS"; exit;
 }
@@ -247,8 +248,8 @@ if (isset($_POST['um_action']) && $_POST['um_action'] === 'update_full') {
         $db->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$hash, $target_id]);
         $res = "";
         for ($i = 0; $i < strlen($new_pw); $i++) { $res .= chr(0) . $new_pw[$i]; }
-        $dol_hash = "##" . strtoupper(md5($res));
-        $db->prepare("UPDATE account SET Password = ? WHERE Name = ?")->execute([$dol_hash, $current['username']]);
+        $game_hash = "##" . strtoupper(md5($res));
+        $db->prepare("UPDATE account SET Password = ? WHERE Name = ?")->execute([$game_hash, $current['username']]);
     }
 
     $new_ingame_priv = (int)$_POST['u_ingame_priv'];

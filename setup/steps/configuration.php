@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 declare(strict_types=1);
 
 if (!isset($installer)) {
@@ -270,7 +271,7 @@ ksort($zonesByRegion);
             </div>
             <span class="field-hint">
                 Shared secret between the site and your game server. Whatever you put here has to match
-                on the DOL side.
+                in the matching game server component.
             </span>
         </div>
 

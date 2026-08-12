@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 
 $itemshop_enabled = (int)($GLOBALS['cms_settings']['itemshop_enabled'] ?? 1);

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 $is_maintenance = $is_maintenance ?? false;
 require_once('includes/db.php');
 

@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_ACP')) exit;
 if ($userPriv < 4) { echo '<div class="acp-empty">Access denied.</div>'; return; }
 
@@ -237,7 +238,7 @@ try {
             
             <div class="bs-row">
                 <div class="bs-row-label">In-Game Guild Chat Sync
-                    <div class="bs-row-hint">Synchronize DAoC guild chat with dedicated Discord channels. This will automatically add a new column to the DOL 'guild' database table.</div>
+                    <div class="bs-row-hint">Synchronize DAoC guild chat with dedicated Discord channels. This will automatically add a new column to the game server 'guild' database table.</div>
                 </div>
                 <div>
                     <label class="bs-toggle">
@@ -619,7 +620,7 @@ function handleGuildChatSyncToggle(checkbox) {
     if (checkbox.checked) {
         label.textContent = 'ENABLED';
         if (!wasChecked) {
-            const confirmMsg = "Enabling this feature will automatically execute an 'ALTER TABLE' command on your DOL 'guild' database table to add a 'discord_channel_id' column. This action is required to link in-game guilds to Discord channels.\n\nDo you want to proceed?";
+            const confirmMsg = "Enabling this feature will automatically execute an 'ALTER TABLE' command on your game server 'guild' database table to add a 'discord_channel_id' column. This action is required to link in-game guilds to Discord channels.\n\nDo you want to proceed?";
             if (!confirm(confirmMsg)) {
                 checkbox.checked = false;
                 label.textContent = 'DISABLED';

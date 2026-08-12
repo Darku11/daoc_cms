@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
 /* ==========================================================================
    DAoC CMS — Cinematic Setup
    Times the cinematic transition and animates the embers.

@@ -1,5 +1,6 @@
 <?php
-// --- DOL CLASS ID MAPPING ---
+// SPDX-License-Identifier: GPL-3.0-only
+// --- DAoC CLASS ID MAPPING ---
 if (!function_exists('getClassName')) {
     function getClassName($id) {
         $classes = [

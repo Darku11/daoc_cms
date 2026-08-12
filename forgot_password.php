@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 require_once('includes/db.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

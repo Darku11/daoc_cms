@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 if (!isset($u_data)) return;
 
 $userPriv   = (int)($_SESSION['priv_level'] ?? 0);
@@ -165,7 +166,7 @@ $canDelete          = ($userPriv >= 4 && $canManageTarget) && !($userPriv >= 5 &
             <i class="fas fa-chevron-right um-acc-icon"></i>
             <i class="fas fa-gamepad" style="opacity:0.5;margin-right:6px;"></i>
             <?= t('acp_um_ingame_settings', [], 'Ingame Settings') ?>
-            <span class="um-acc-meta">DOL Priv <?= (int)($u_data['ingame_priv'] ?? 1) ?></span>
+            <span class="um-acc-meta">Game Priv <?= (int)($u_data['ingame_priv'] ?? 1) ?></span>
         </div>
         <div class="um-acc-body">
             <form class="um-acc-form"
@@ -175,7 +176,7 @@ $canDelete          = ($userPriv >= 4 && $canManageTarget) && !($userPriv >= 5 &
                 <input type="hidden" name="um_action" value="update_full">
                 <div class="um-acc-fields">
                     <div class="um-acc-field">
-                        <label class="um-ed-section-title">DOL PrivLevel</label>
+                        <label class="um-ed-section-title">Ingame PrivLevel</label>
                         <select name="u_ingame_priv" class="um-field" <?= ($userPriv < 4) ? 'disabled' : '' ?>>
                             <option value="1" <?= ((int)($u_data['ingame_priv'] ?? 1) === 1) ? 'selected' : '' ?>>1 — <?= t('acp_um_player', [], 'Player') ?></option>
                             <option value="2" <?= ((int)($u_data['ingame_priv'] ?? 1) === 2) ? 'selected' : '' ?>>2 — GM</option>

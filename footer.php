@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 ?>
 <?php echo cms_run_hook('hook_footer'); ?>
 <footer class="main-footer">

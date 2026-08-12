@@ -1,4 +1,5 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-only
 
 header('Content-Type: text/plain; charset=UTF-8');
 header('Cache-Control: public, max-age=3600');

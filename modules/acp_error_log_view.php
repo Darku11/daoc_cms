@@ -1,4 +1,5 @@
-<?php if (!defined('IN_CMS')) exit;
+<?php
+// SPDX-License-Identifier: GPL-3.0-only if (!defined('IN_CMS')) exit;
 
 function err_type_label(int $errno): string {
     return match($errno) {
