@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# ----------------------------------------------------------------------
+# DAOC CMS - APACHE SECURITY CONFIGURATION
+# ----------------------------------------------------------------------
+
+# Disable directory listings.
+Options -Indexes
+
+# Use index.php as the default document and UTF-8 as the default charset.
+DirectoryIndex index.php
+AddDefaultCharset UTF-8
+
+# Optional HTTPS redirect.
+# Enable this block only after HTTPS has been configured for the domain.
+# The proxy check prevents redirect loops behind a reverse proxy.
+#
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTPS} !=on
+#     RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+#     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE]
+# </IfModule>
+
+# Public robots.txt route and protected internal paths.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^robots\.txt$ robots.php [L]
+    RewriteRule ^migrations(?:/|$) - [F,L]
+    RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L]
+</IfModule>
+
+# Deny direct access to generated credentials and database bootstrap files.
+<FilesMatch "(?i)^(?:config|db)\.php$">
+    Require all denied
+</FilesMatch>
+
+# Deny direct downloads of logs, database dumps, and local configuration files.
+<FilesMatch "(?i)\.(?:bak|conf|ini|log|old|orig|sql|sqlite|ya?ml)$">
+    Require all denied
+</FilesMatch>
+
+# Deny direct access to dependency manifests that expose package versions.
+<FilesMatch "(?i)^(?:composer\.(?:json|lock)|package(?:-lock)?\.json)$">
+    Require all denied
+</FilesMatch>

@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Prevent direct web access to backup archives and database dumps.
+Require all denied

@@ -1,0 +1,526 @@
+<?php
+// SPDX-License-Identifier: GPL-3.0-only
+declare(strict_types=1);
+
+if (!isset($installer)) {
+    exit;
+}
+
+require_once __DIR__ . '/../includes/DolDatabase.php';
+require_once __DIR__ . '/../includes/Security.php';
+
+use DAoCCMS\Setup\DolDatabase;
+use DAoCCMS\Setup\Security;
+use DAoCCMS\Setup\Britty;
+
+if (!function_exists('size_format_daoc')) {
+    function size_format_daoc(int $bytes): string
+    {
+        if ($bytes >= 1073741824) return round($bytes / 1073741824, 1) . ' GB';
+        if ($bytes >= 1048576)    return round($bytes / 1048576, 1) . ' MB';
+        if ($bytes >= 1024)       return round($bytes / 1024) . ' KB';
+        return $bytes . ' B';
+    }
+}
+
+$security = new Security();
+
+$error   = '';
+$success = false;
+$report  = null;   // Import result
+
+// Prefer saved values, then use the CMS database values as a convenience.
+$host   = $_SESSION['setup_dol']['host']   ?? $_SESSION['setup_db']['host'] ?? '127.0.0.1';
+$port   = $_SESSION['setup_dol']['port']   ?? $_SESSION['setup_db']['port'] ?? 3306;
+$dbName = $_SESSION['setup_dol']['name']   ?? '';
+$user   = $_SESSION['setup_dol']['user']   ?? $_SESSION['setup_db']['user'] ?? '';
+$pass   = $_SESSION['setup_dol']['pass']   ?? $_SESSION['setup_db']['pass'] ?? '';
+$action = $_SESSION['setup_dol']['action'] ?? 'existing';
+$savedCore = strtolower(trim((string)($_SESSION['setup_dol']['core'] ?? '')));
+$core = in_array($savedCore, ['opendaoc', 'dol'], true) ? $savedCore : '';
+
+$publicSqlFiles = [
+    'opendaoc' => 'opendaoc_public.sql.gz',
+    'dol'      => 'dol_public.sql',
+];
+$publicSqlMeta = [];
+
+foreach ($publicSqlFiles as $serverCore => $fileName) {
+    $candidate = __DIR__ . '/../sql/' . $fileName;
+    $path      = realpath($candidate);
+    $exists    = $path !== false && is_file($path);
+
+    $publicSqlMeta[$serverCore] = [
+        'file'   => $fileName,
+        'path'   => $exists ? $path : null,
+        'exists' => $exists,
+        'size'   => $exists ? size_format_daoc((int) filesize($path)) : null,
+    ];
+}
+
+$publicSql = $publicSqlMeta[$core] ?? [
+    'file'   => '',
+    'path'   => null,
+    'exists' => false,
+    'size'   => null,
+];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['setup_dol'])) {
+
+    if (!$security->validateToken($_POST['csrf_token'] ?? '')) {
+        $error = 'Security token validation failed. Reload the page and try again.';
+    } else {
+        $host   = trim($_POST['dol_host'] ?? '');
+        $port   = (int) ($_POST['dol_port'] ?? 3306);
+        $dbName = trim($_POST['dol_name'] ?? '');
+        $user   = trim($_POST['dol_user'] ?? '');
+        $pass   = $_POST['dol_pass'] ?? '';
+        $action = $_POST['dol_action'] ?? 'existing';
+        $core   = strtolower(trim((string)($_POST['game_server_core'] ?? '')));
+        $publicSql = $publicSqlMeta[$core] ?? [
+            'file'   => '',
+            'path'   => null,
+            'exists' => false,
+            'size'   => null,
+        ];
+
+        $destructive = in_array($action, ['public', 'upload'], true);
+        $confirmed   = isset($_POST['dol_confirm']);
+
+        if (!in_array($core, ['opendaoc', 'dol'], true)) {
+            $error = 'Choose OpenDAoC or Dawn of Light before continuing.';
+        } elseif ($host === '' || $dbName === '' || $user === '') {
+            $error = 'Host, database name, and username are required.';
+        } elseif (!in_array($action, ['public', 'existing', 'upload'], true)) {
+            $error = 'Pick one of the three options below.';
+        } elseif ($action === 'public' && !$publicSql['exists']) {
+            $missingFile = $publicSql['file'] !== '' ? 'sql/' . $publicSql['file'] : 'The selected database dump';
+            $error = $missingFile . ' is missing from the setup package. Re-download the release or use one of the other options.';
+        } elseif ($destructive && !$confirmed) {
+            $error = 'This option writes over the target database. Tick the confirmation box to continue.';
+        } else {
+            $result = DolDatabase::testConnection($host, $port, $dbName, $user, $pass);
+
+            if (!$result['success']) {
+                $error = 'Could not connect to the game server database: ' . $result['message'];
+            } else {
+                $pdo   = $result['pdo'];
+                $valid = true;
+
+                try {
+                    if ($action === 'existing') {
+                        $verify = DolDatabase::verifyExistingStructure($pdo);
+                        if (!$verify['valid']) {
+                            $error = $verify['message'] . ' — this does not look like a compatible ' . ($core === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light') . ' database. '
+                                   . 'Check the database name, or pick one of the import options instead.';
+                            $valid = false;
+                        } else {
+                            $accounts = DolDatabase::countAccounts($pdo);
+                            $report = [
+                                'mode'     => 'existing',
+                                'tables'   => DolDatabase::countTables($pdo),
+                                'accounts' => $accounts,
+                            ];
+                        }
+
+                    } elseif ($action === 'public') {
+                        if (!$publicSql['exists'] || $publicSql['path'] === null) {
+                            $error = 'The bundled database is missing from the setup package. '
+                                   . 'Re-download the release or use one of the other two options.';
+                            $valid = false;
+                        } elseif (DolDatabase::countTables($pdo) > 0) {
+                            $error = 'The bundled database can only be installed into an empty target database. '
+                                   . 'Choose a new empty database or use "Leave it alone" for an existing shard.';
+                            $valid = false;
+                        } else {
+                            $stats  = DolDatabase::importSqlFile($pdo, $publicSql['path']);
+                            $verify = DolDatabase::verifyWorldStructure($pdo);
+
+                            if (!$verify['valid']) {
+                                $error = $verify['message'] . ' — the bundled database import is incomplete.';
+                                $valid = false;
+                            } else {
+                                $report = ['mode' => 'public', 'source' => $publicSql['file']] + $stats;
+                            }
+                        }
+
+                    } elseif ($action === 'upload') {
+                        $upload = $_FILES['dol_upload'] ?? null;
+
+                        if ($upload === null || $upload['error'] === UPLOAD_ERR_NO_FILE) {
+                            $error = 'Choose a .sql file to upload.';
+                            $valid = false;
+                        } elseif ($upload['error'] === UPLOAD_ERR_INI_SIZE || $upload['error'] === UPLOAD_ERR_FORM_SIZE) {
+                            $error = 'The file is larger than this server accepts. '
+                                   . 'Current limit: ' . ini_get('upload_max_filesize') . '. '
+                                   . 'Import it with the mysql command line instead, then use option two.';
+                            $valid = false;
+                        } elseif ($upload['error'] !== UPLOAD_ERR_OK) {
+                            $error = 'The upload did not complete (error code ' . (int) $upload['error'] . '). Try again.';
+                            $valid = false;
+                        } elseif (strtolower(pathinfo((string) $upload['name'], PATHINFO_EXTENSION)) !== 'sql') {
+                            $error = 'Only .sql files are accepted. Unpack .zip or .gz archives first.';
+                            $valid = false;
+                        } elseif (!is_uploaded_file($upload['tmp_name'])) {
+                            $error = 'The uploaded file could not be read.';
+                            $valid = false;
+                        } else {
+                            $stats  = DolDatabase::importSqlFile($pdo, $upload['tmp_name']);
+                            $report = ['mode' => 'upload', 'source' => basename((string) $upload['name'])] + $stats;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $error = 'The database operation failed: ' . $e->getMessage();
+                    $valid = false;
+                }
+
+                if ($valid) {
+                    $success = true;
+                    $_SESSION['setup_dol'] = [
+                        'host'   => $host,
+                        'port'   => $port,
+                        'name'   => $dbName,
+                        'user'   => $user,
+                        'pass'   => $pass,
+                        'action' => $action,
+                        'core'   => $core,
+                    ];
+                }
+            }
+        }
+    }
+}
+
+// Without JavaScript, keep the bundled-import option selectable until the
+// submitted core determines which package must be present.
+$publicChoiceEnabled = $core === '' || $publicSql['exists'];
+?>
+
+<h3 class="step-title"><i class="fas fa-dungeon"></i>The Realm Gate</h3>
+
+<?php Britty::say(
+    'Now the real gate — your actual shard. Choose with care: two of the three paths here write ' .
+    'over whatever is already in the target database. "Leave it alone" is the safe choice if your ' .
+    'server is already live.'
+); ?>
+
+<?php if (!$success && in_array($action, ['public', 'upload'], true)): ?>
+<div class="danger danger--info" style="margin-bottom: 28px;">
+    <p class="danger-title"><i class="fas fa-font"></i> Creating a fresh database? Use utf8mb4</p>
+    <p class="danger-text">
+        Only matters for a brand new database — an existing live shard already has its own charset and
+        should be left as-is. For a new one, create it as <code class="inline-code">utf8mb4</code> so
+        character names, guild names, and item text in every language survive the import intact.
+    </p>
+    <div class="cmd" style="margin-top: 10px;">
+        <code id="dolCharsetCmd">CREATE DATABASE `your_database_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;</code>
+        <button type="button" class="cmd-copy" data-copy-target="dolCharsetCmd">Copy</button>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($error): ?>
+    <div class="alert alert-danger mb-4" style="word-break: break-word;">
+        <?= htmlspecialchars($error) ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($success): ?>
+
+    <div class="alert alert-success mb-4">
+        <strong>The gate is open.</strong>
+    </div>
+
+    <dl class="ledger">
+        <dt>Core</dt><dd><?= $core === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light' ?></dd>
+        <dt>Server</dt><dd><?= htmlspecialchars($host) ?>:<?= (int) $port ?></dd>
+        <dt>Database</dt><dd><?= htmlspecialchars($dbName) ?></dd>
+        <?php if (($report['mode'] ?? '') === 'existing'): ?>
+            <dt>Mode</dt><dd>Connected to an existing shard — nothing was written</dd>
+            <dt>Tables</dt><dd><?= (int) $report['tables'] ?></dd>
+            <?php if ($report['accounts'] !== null): ?>
+                <dt>Accounts</dt><dd><?= (int) $report['accounts'] ?> existing</dd>
+            <?php endif; ?>
+        <?php elseif ($report !== null): ?>
+            <dt>Mode</dt><dd>Imported from <?= htmlspecialchars((string) $report['source']) ?></dd>
+            <dt>Statements</dt><dd><?= (int) $report['executed'] ?> executed<?= $report['failed'] > 0 ? ', ' . (int) $report['failed'] . ' skipped' : '' ?></dd>
+        <?php endif; ?>
+    </dl>
+
+    <?php if (!empty($report['failed'])): ?>
+        <div class="alert alert-warning mt-4">
+            <strong><?= (int) $report['failed'] ?> statements were skipped.</strong><br>
+            Some of this is normal — <code class="inline-code">DROP TABLE IF EXISTS</code> often fails on
+            restricted hosting. But check the first message below before you continue:
+            <div class="console" style="margin-top: 12px; max-height: 120px;">
+                <?php foreach ($report['errors'] as $msg): ?>
+                    <div class="log-line log-line--bad"><?= htmlspecialchars($msg) ?></div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
+<?php else: ?>
+
+    <form method="POST" action="index.php?step=dol_database" enctype="multipart/form-data" id="dolForm">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($security->generateToken()) ?>">
+
+        <p class="act-slug">Game server core</p>
+
+        <fieldset class="field">
+            <legend class="form-label">Which server core will this CMS use?</legend>
+            <div class="choices" id="coreChoices">
+                <label class="choice<?= $core === 'opendaoc' ? ' is-picked' : '' ?>">
+                    <input type="radio" name="game_server_core" value="opendaoc"
+                           <?= $core === 'opendaoc' ? 'checked' : '' ?> required>
+                    <span class="choice-mark" aria-hidden="true"></span>
+                    <span class="choice-body">
+                        <b>OpenDAoC</b>
+                        <span>Use the OpenDAoC database structure and bundled OpenDAoC world database.</span>
+                    </span>
+                </label>
+
+                <label class="choice<?= $core === 'dol' ? ' is-picked' : '' ?>">
+                    <input type="radio" name="game_server_core" value="dol"
+                           <?= $core === 'dol' ? 'checked' : '' ?> required>
+                    <span class="choice-mark" aria-hidden="true"></span>
+                    <span class="choice-body">
+                        <b>Dawn of Light</b>
+                        <span>Use the Dawn of Light database structure and bundled DOL world database.</span>
+                    </span>
+                </label>
+            </div>
+            <span class="field-hint">Required. The setup does not select a server core automatically.</span>
+        </fieldset>
+
+        <p class="act-slug" style="margin-top: 34px;">Connection</p>
+
+        <div class="field-grid">
+            <div class="field field--wide">
+                <label class="form-label" for="dol_host">Host</label>
+                <input type="text" class="form-control" id="dol_host" name="dol_host"
+                       value="<?= htmlspecialchars($host) ?>" required autocomplete="off">
+            </div>
+            <div class="field">
+                <label class="form-label" for="dol_port">Port</label>
+                <input type="number" class="form-control" id="dol_port" name="dol_port"
+                       value="<?= htmlspecialchars((string) $port) ?>" required min="1" max="65535">
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="form-label" for="dol_name">Database name</label>
+            <input type="text" class="form-control" id="dol_name" name="dol_name"
+                   value="<?= htmlspecialchars($dbName) ?>" required autocomplete="off">
+            <span class="field-hint">The database configured by your game server. It often contains <code class="inline-code">account</code> and <code class="inline-code">dolcharacters</code>.</span>
+        </div>
+
+        <div class="field-grid">
+            <div class="field">
+                <label class="form-label" for="dol_user">Username</label>
+                <input type="text" class="form-control" id="dol_user" name="dol_user"
+                       value="<?= htmlspecialchars($user) ?>" required autocomplete="off">
+            </div>
+            <div class="field">
+                <label class="form-label" for="dol_pass">Password</label>
+                <input type="password" class="form-control" id="dol_pass" name="dol_pass"
+                       value="<?= htmlspecialchars($pass) ?>" autocomplete="new-password">
+            </div>
+        </div>
+
+        <p class="act-slug" style="margin-top: 34px;">What should happen to this database?</p>
+
+        <div class="choices" id="dolChoices">
+
+            <label class="choice<?= $action === 'existing' ? ' is-picked' : '' ?>">
+                <input type="radio" name="dol_action" value="existing" <?= $action === 'existing' ? 'checked' : '' ?>>
+                <span class="choice-mark" aria-hidden="true"></span>
+                <span class="choice-body">
+                    <b>Leave it alone</b>
+                    <span>Connect to a shard that is already running. Nothing is written. The wizard
+                    only checks that the <code class="inline-code">account</code> and
+                    <code class="inline-code">dolcharacters</code> tables are there.</span>
+                    <span class="choice-tag choice-tag--safe">Safe · recommended for live servers</span>
+                </span>
+            </label>
+
+            <label class="choice<?= $action === 'public' ? ' is-picked' : '' ?><?= $publicChoiceEnabled ? '' : ' is-disabled' ?>" id="dolPublicChoice">
+                <input type="radio" name="dol_action" value="public"
+                       <?= $action === 'public' ? 'checked' : '' ?> <?= $publicChoiceEnabled ? '' : 'disabled' ?>>
+                <span class="choice-mark" aria-hidden="true"></span>
+                <span class="choice-body">
+                    <b id="dolPublicTitle"><?= $core === ''
+                        ? 'Choose a game server core first'
+                        : 'Install the bundled ' . ($core === 'opendaoc' ? 'OpenDAoC' : 'DOL') . ' database' ?></b>
+                    <span id="dolPublicDescription"><?= $core === ''
+                        ? 'Choose OpenDAoC or Dawn of Light before selecting a bundled database.'
+                        : ($publicSql['exists']
+                            ? 'Imports ' . htmlspecialchars((string) $publicSql['file']) . ' (' . htmlspecialchars((string) $publicSql['size']) . '). Use this for a brand new ' . ($core === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light') . ' shard.'
+                            : 'Unavailable — sql/' . htmlspecialchars((string) $publicSql['file']) . ' is not in this setup package.') ?></span>
+                    <span class="choice-tag choice-tag--danger">Requires an empty database</span>
+                </span>
+            </label>
+
+            <label class="choice<?= $action === 'upload' ? ' is-picked' : '' ?>">
+                <input type="radio" name="dol_action" value="upload" <?= $action === 'upload' ? 'checked' : '' ?>>
+                <span class="choice-mark" aria-hidden="true"></span>
+                <span class="choice-body">
+                    <b>Import my own backup</b>
+                    <span>Upload a plain <code class="inline-code">.sql</code> file. Server limit:
+                    <?= htmlspecialchars((string) ini_get('upload_max_filesize')) ?>. Larger dumps are
+                    faster through the mysql command line — then pick the first option instead.</span>
+                    <span class="choice-tag choice-tag--danger">Writes over existing tables</span>
+
+                    <span class="choice-extra" id="uploadBox" hidden>
+                        <input type="file" class="form-control form-control-sm" name="dol_upload" accept=".sql,application/sql,text/plain">
+                    </span>
+                </span>
+            </label>
+
+        </div>
+
+        <div class="danger" id="dangerBox" hidden>
+            <p class="danger-title"><i class="fas fa-triangle-exclamation"></i> This will write over data</p>
+            <p class="danger-text">
+                The import writes tables and data into <b id="dangerDb">the target database</b>.
+                Existing matching data may be replaced, changed, or cause import conflicts. There is no undo from here.
+            </p>
+            <label class="confirm">
+                <input type="checkbox" name="dol_confirm" id="dolConfirm">
+                <span>I have a backup, or this database holds nothing I need.</span>
+            </label>
+        </div>
+
+        <button type="submit" name="setup_dol" class="btn btn-gold w-100 py-2 mt-4" id="dolSubmit">
+            <i class="fas fa-plug me-2"></i> <span id="dolSubmitLabel">Test the connection</span>
+        </button>
+
+        <p class="probe-note" style="margin-top: 12px; text-align: center;">
+            Importing a large database can take a minute or two. Do not close the tab.
+        </p>
+    </form>
+
+    <script>
+    (function () {
+        var choices = document.querySelectorAll('#dolChoices .choice');
+        var radios  = document.querySelectorAll('#dolChoices input[name="dol_action"]');
+        var upload  = document.getElementById('uploadBox');
+        var danger  = document.getElementById('dangerBox');
+        var confirm = document.getElementById('dolConfirm');
+        var label   = document.getElementById('dolSubmitLabel');
+        var dbField = document.getElementById('dol_name');
+        var dbName  = document.getElementById('dangerDb');
+        var coreChoices = document.querySelectorAll('#coreChoices .choice');
+        var coreRadios = document.querySelectorAll('#coreChoices input[name="game_server_core"]');
+        var publicRadio = document.querySelector('#dolChoices input[value="public"]');
+        var publicChoice = document.getElementById('dolPublicChoice');
+        var publicTitle = document.getElementById('dolPublicTitle');
+        var publicDescription = document.getElementById('dolPublicDescription');
+        var publicSql = <?= json_encode(array_map(
+            static fn (array $meta): array => [
+                'file'      => $meta['file'],
+                'available' => $meta['exists'],
+                'size'      => $meta['size'],
+            ],
+            $publicSqlMeta
+        ), JSON_UNESCAPED_SLASHES) ?>;
+
+        function selectedCore() {
+            var picked = document.querySelector('#coreChoices input[name="game_server_core"]:checked');
+            return picked ? picked.value : '';
+        }
+
+        function syncCore() {
+            if (!publicRadio) return;
+
+            var coreValue = selectedCore();
+            var bundle = publicSql[coreValue] || { file: '', available: false, size: null };
+            var canUsePublic = coreValue !== '' && bundle.available === true;
+            publicRadio.disabled = !canUsePublic;
+            if (publicChoice) publicChoice.classList.toggle('is-disabled', !canUsePublic);
+
+            coreChoices.forEach(function (choice) {
+                var radio = choice.querySelector('input[name="game_server_core"]');
+                choice.classList.toggle('is-picked', radio !== null && radio.matches(':checked'));
+            });
+
+            var coreName = coreValue === 'opendaoc' ? 'OpenDAoC' : 'DOL';
+            var shardName = coreValue === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light';
+
+            if (publicTitle) {
+                publicTitle.textContent = coreValue === ''
+                    ? 'Choose a game server core first'
+                    : 'Install the bundled ' + coreName + ' database';
+            }
+            if (publicDescription) {
+                publicDescription.textContent = coreValue === ''
+                    ? 'Choose OpenDAoC or Dawn of Light before selecting a bundled database.'
+                    : (canUsePublic
+                        ? 'Imports ' + bundle.file + ' (' + bundle.size + '). Use this for a brand new ' + shardName + ' shard.'
+                        : 'Unavailable — sql/' + bundle.file + ' is not in this setup package.');
+            }
+
+            if (!canUsePublic && publicRadio.checked) {
+                var existing = document.querySelector('#dolChoices input[value="existing"]');
+                if (existing) existing.checked = true;
+            }
+        }
+
+        function sync() {
+            var picked = document.querySelector('#dolChoices input[name="dol_action"]:checked');
+            var value  = picked ? picked.value : 'existing';
+
+            choices.forEach(function (c) {
+                c.classList.toggle('is-picked', c.contains(picked));
+            });
+
+            upload.hidden = value !== 'upload';
+
+            var destructive = (value === 'public' || value === 'upload');
+            danger.hidden = !destructive;
+            if (!destructive && confirm) confirm.checked = false;
+
+            label.textContent = value === 'public'
+                ? 'Install the bundled database'
+                : (value === 'upload' ? 'Import and overwrite' : 'Test the connection');
+        }
+
+        function syncName() {
+            dbName.textContent = dbField.value.trim() || 'the target database';
+        }
+
+        radios.forEach(function (r) { r.addEventListener('change', sync); });
+        coreRadios.forEach(function (radio) {
+            radio.addEventListener('change', function () { syncCore(); sync(); });
+        });
+        if (dbField) dbField.addEventListener('input', syncName);
+
+        syncCore();
+        sync();
+        syncName();
+    })();
+    </script>
+
+<?php endif; ?>
+
+<div class="mt-5 d-flex justify-content-between border-top pt-4">
+    <?php if ($success): ?>
+        <a href="index.php?step=dol_database" class="btn btn-outline-secondary">
+            <i class="fas fa-pen me-2"></i> Change these details
+        </a>
+    <?php else: ?>
+        <a href="index.php?step=database" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Back
+        </a>
+    <?php endif; ?>
+
+    <?php if ($success): ?>
+        <a href="index.php?step=configuration" class="btn btn-gold px-4 py-2">
+            Configure the CMS <i class="fas fa-arrow-right ms-2"></i>
+        </a>
+    <?php else: ?>
+        <button class="btn btn-gold px-4 py-2 disabled" disabled>
+            Connect the game database first <i class="fas fa-lock ms-2"></i>
+        </button>
+    <?php endif; ?>
+</div>

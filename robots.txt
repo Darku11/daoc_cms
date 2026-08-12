@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /includes/
+Disallow: /modules/
+Disallow: /assets/
+Disallow: /index.php?p=login
+Disallow: /index.php?p=register
+
+# Allow the forum and home page.
+Allow: /index.php?p=forum
+Allow: /index.php?p=home
