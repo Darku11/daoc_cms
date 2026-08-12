@@ -109,8 +109,11 @@ $downloads = [
 </ul>
 
 <p class="probe-note" style="margin-top: 16px;">
-    AldhranConsole itself isn't a DOL/OpenDAoC script and isn't bundled here — it ships and updates separately.
-    Ask wherever you got this CMS release for the current build.
+    AldhranConsole itself isn't a DOL/OpenDAoC script, so it isn't bundled as a download here — it's a
+    separate ASP.NET project you build and run on its own. Its source lives in the
+    <a href="https://github.com/Darku11/daoc_cms_utilities/tree/main/AldhranConsole" class="text-link" target="_blank" rel="noopener">
+        <code class="inline-code">AldhranConsole/</code> folder of the daoc_cms_utilities repository</a>.
+    It runs unmodified on both DOL and OpenDAoC.
 </p>
 
 <div class="mt-5 d-flex justify-content-between border-top pt-4">
