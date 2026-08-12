@@ -228,3 +228,11 @@ function _cms_filter_acp_card(string $html): string
 
     return $html;
 }
+
+if (defined('IN_ACP')) {
+    cms_register_hook('hook_acp_dashboard_top', static function (): string {
+        ob_start();
+        include __DIR__ . '/../modules/acp_update_status_widget.php';
+        return (string) ob_get_clean();
+    });
+}
