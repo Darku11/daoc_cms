@@ -12,7 +12,6 @@ final class CmsMigrationManager
         $version = $stmt->fetchColumn();
 
         if ($version === false || !preg_match('/^\d{14}$/', (string)$version)) {
-            self::storeVersion($db, self::BASELINE_VERSION);
             return self::BASELINE_VERSION;
         }
 
