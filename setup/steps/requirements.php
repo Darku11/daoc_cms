@@ -56,8 +56,9 @@ $required = [
     'pdo_mysql' => 'MySQL driver',
     'json'      => 'Settings and API payloads',
     'curl'      => 'Outgoing requests (mail, Discord)',
-    'zip'       => 'Plugin and backup archives',
+    'zip'       => 'Backup archive creation and restoration',
     'fileinfo'  => 'Upload type detection',
+    'zlib'      => 'Compressed OpenDAoC database installation',
 ];
 
 foreach ($required as $ext => $why) {
@@ -72,9 +73,8 @@ foreach ($required as $ext => $why) {
 
 // Recommended extensions do not block installation.
 $recommended = [
-    'mbstring' => 'Correct handling of non-ASCII character names',
-    'openssl'  => 'Encrypted mail transport',
-    'gd'       => 'Avatar and image resizing',
+    'mbstring' => 'Improved multibyte and Unicode string handling',
+    'openssl'  => 'TLS and cryptographic support for PHP integrations',
 ];
 
 foreach ($recommended as $ext => $why) {
@@ -83,7 +83,7 @@ foreach ($recommended as $ext => $why) {
         'label'  => 'Extension: ' . $ext,
         'status' => $loaded ? 'ok' : 'warn',
         'value'  => $loaded ? 'loaded' : 'not loaded',
-        'note'   => $loaded ? $why . ' (optional)' : $why . '. Optional, but some features degrade without it.',
+        'note'   => $loaded ? $why . ' (optional)' : $why . '. Optional, but recommended.',
     ];
 }
 
