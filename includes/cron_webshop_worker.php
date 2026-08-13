@@ -6,31 +6,10 @@
 define('IN_CMS', true);
 require_once(__DIR__ . '/db.php');
 
-define('IGC_SERVICE_URL', $GLOBALS['cms_settings']['igc_service_url'] ?? 'http://127.0.0.1:5100');
-define('IGC_SECRET',      $GLOBALS['cms_settings']['igc_api_secret']  ?? '');
-
 const MAX_ATTEMPTS = 10;
 
-function igc_call(string $endpoint, array $payload = [], string $method = 'POST'): array {
-    $url = IGC_SERVICE_URL . '/' . ltrim($endpoint, '/');
-    $ch  = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 5,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'X-Aldhran-Secret: ' . IGC_SECRET],
-    ]);
-    if ($method === 'POST') {
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    }
-    $raw = curl_exec($ch);
-    curl_close($ch);
-    $data = json_decode($raw, true);
-    return $data ?? ['ok' => false, 'error' => 'invalid_response'];
-}
-
 // Fetch the online list once, instead of per-order (saves bridge roundtrips)
-$status = igc_call('status', [], 'GET');
+$status = aldhran_console_call('status', [], 'GET');
 if (!($status['ok'] ?? false)) {
     error_log('[webshop_worker] Bridge unreachable, skipping cycle.');
     exit;
@@ -56,7 +35,7 @@ foreach ($pending as $order) {
         continue; // Player not online, next cycle will retry
     }
 
-    $result = igc_call('giveitem', [
+    $result = aldhran_console_call('giveitem', [
         'name'    => $order['player_name'],
         'item_id' => $order['item_template_id'],
         'count'   => (int)$order['count'],

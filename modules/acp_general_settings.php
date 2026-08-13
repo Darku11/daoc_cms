@@ -75,11 +75,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             }
         }
 
-        $gs_fields = ['game_server_ip', 'game_server_port', 'game_server_bridge_port', 'game_server_bridge_secret', 'game_server_bat_path', 'game_server_console_host', 'game_server_console_port', 'game_server_console_secret'];
+        $gs_fields = ['game_server_ip', 'game_server_port', 'game_server_bridge_port', 'game_server_shared_secret', 'game_server_bat_path', 'game_server_console_host', 'game_server_console_port'];
         foreach ($gs_fields as $field) {
             if (isset($_POST[$field])) {
                 $val = trim($_POST[$field]);
-                if (($field === 'game_server_bridge_secret' || $field === 'game_server_console_secret') && $val === '') {
+                if ($field === 'game_server_shared_secret' && $val === '') {
                     continue;
                 }
                 $updates[$field] = $val;
@@ -107,6 +107,14 @@ $languages        = $db->query("SELECT DISTINCT lang_code FROM cms_translations"
 $available_themes = $db->query("SELECT DISTINCT theme_slug FROM aldhran_styles")->fetchAll(PDO::FETCH_COLUMN);
 if (empty($available_themes)) $available_themes = ['default'];
 if (empty($languages))        $languages        = ['DE', 'EN'];
+
+$game_server_shared_secret_is_set = false;
+foreach (['game_server_shared_secret', 'game_server_bridge_secret', 'game_server_console_secret', 'igc_api_secret'] as $secret_key) {
+    if (trim((string)($settings[$secret_key] ?? '')) !== '') {
+        $game_server_shared_secret_is_set = true;
+        break;
+    }
+}
 
 // ── Game Server: Auto-Detection ───────────────────────────────
 
@@ -420,8 +428,8 @@ function gs($s, $key, $default = '1') {
                     <div><input type="number" name="game_server_bridge_port" class="gs-input" value="<?= h(gs($settings,'game_server_bridge_port','2000')) ?>" placeholder="2000"></div>
                 </div>
                 <div class="gs-row">
-                    <div class="gs-row-label">Bridge Secret<div class="gs-row-hint">Must match BRIDGE_SECRET in AldhranBridge.cs.</div></div>
-                    <div><input type="password" name="game_server_bridge_secret" class="gs-input" value="" placeholder="<?= !empty($settings['game_server_bridge_secret']) ? t('acp_secret_is_set', [], 'Secret is set (leave empty to keep)') : '' ?>"></div>
+                    <div class="gs-row-label">Shared Secret<div class="gs-row-hint">Must match SharedSecret in AldhranConsole and BRIDGE_SECRET in the game server scripts.</div></div>
+                    <div><input type="password" name="game_server_shared_secret" class="gs-input" value="" placeholder="<?= $game_server_shared_secret_is_set ? t('acp_secret_is_set', [], 'Secret is set (leave empty to keep)') : '' ?>"></div>
                 </div>
             </div>
 
@@ -434,10 +442,6 @@ function gs($s, $key, $default = '1') {
                 <div class="gs-row">
                     <div class="gs-row-label">Console Port<div class="gs-row-hint">AldhranConsole HTTP port (default: 5100).</div></div>
                     <div><input type="number" name="game_server_console_port" class="gs-input" value="<?= h(gs($settings,'game_server_console_port','5100')) ?>" placeholder="5100"></div>
-                </div>
-                <div class="gs-row">
-                    <div class="gs-row-label">Console Secret<div class="gs-row-hint">Must match Console:ApiSecret in appsettings.json.</div></div>
-                    <div><input type="password" name="game_server_console_secret" class="gs-input" value="" placeholder="<?= !empty($settings['game_server_console_secret']) ? t('acp_secret_is_set', [], 'Secret is set (leave empty to keep)') : '' ?>"></div>
                 </div>
             </div>
 

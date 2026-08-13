@@ -58,7 +58,7 @@ class Runner
     /**
      * Verify that all required data from previous steps exists in the session.
      *
-     * @return array{db:array,game:array,cms:array,crypto:array,admin:array}
+     * @return array{db:array,game:array,cms:array,crypto:array,admin:array,console:array}
      */
     public static function session(): array
     {
@@ -67,6 +67,7 @@ class Runner
         $cms    = $_SESSION['setup_config'] ?? [];
         $crypto = $_SESSION['setup_crypto'] ?? [];
         $admin  = $_SESSION['setup_admin']  ?? [];
+        $console = $_SESSION['setup_console'] ?? [];
 
         if (empty($db) || empty($game) || empty($cms) || empty($crypto) || empty($admin)) {
             throw new RuntimeException('Session data is missing. Please restart the setup.');
@@ -76,7 +77,14 @@ class Runner
             throw new RuntimeException('No game server core was selected. Return to The Realm Gate and choose OpenDAoC or Dawn of Light.');
         }
 
-        return ['db' => $db, 'game' => $game, 'cms' => $cms, 'crypto' => $crypto, 'admin' => $admin];
+        return [
+            'db' => $db,
+            'game' => $game,
+            'cms' => $cms,
+            'crypto' => $crypto,
+            'admin' => $admin,
+            'console' => $console,
+        ];
     }
 
     /** Recreate the PDO connection from session data. */
@@ -391,6 +399,10 @@ class Runner
             'language'           => $s['cms']['language'],
             'timezone'           => $s['cms']['timezone'],
             'game_server_core'   => $s['game']['core'],
+            'game_server_bridge_port' => (string)($s['console']['bridge_port'] ?? 2000),
+            'game_server_console_host' => (string)($s['console']['host'] ?? '127.0.0.1'),
+            'game_server_console_port' => (string)($s['console']['port'] ?? 5100),
+            'game_server_shared_secret' => $s['cms']['asp_key'] ?? $s['crypto']['asp_key'],
             'discord_bot_token'  => $s['cms']['discord_token'],
             'discord_guild_id'   => $s['cms']['discord_guild'],
             'settings_version'   => (string) time(),

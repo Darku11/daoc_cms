@@ -552,40 +552,24 @@ class BotEventDispatcher {
         }
 
         try {
-            $host   = $GLOBALS['cms_settings']['game_server_console_host'] ?? '127.0.0.1';
-            $port   = $GLOBALS['cms_settings']['game_server_console_port'] ?? 5100;
-            $secret = $GLOBALS['cms_settings']['game_server_console_secret'] ?? '';
-
-            $ch = curl_init("http://{$host}:{$port}/guildchat");
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'X-Aldhran-Secret: ' . $secret,
-                'Content-Type: application/json'
-            ]);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+            $response = aldhran_console_call('guildchat', [
                 'guild'   => $guildName,
                 'sender'  => $sender,
                 'message' => $message
-            ]));
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+            ], 'POST', 5);
 
-            $response = curl_exec($ch);
-            $errno    = curl_errno($ch);
-            $error    = curl_error($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            if ($errno !== 0) {
-                error_log("handleGuildChat: curl failed to {$host}:{$port} - [$errno] $error");
-                return ['status' => 'error', 'message' => "Bridge unreachable: $error"];
-            }
-            if ($httpCode < 200 || $httpCode >= 300) {
-                error_log("handleGuildChat: game server returned HTTP $httpCode | Body: $response");
-                return ['status' => 'error', 'message' => "Game server returned HTTP $httpCode"];
+            if (!($response['ok'] ?? false)) {
+                return [
+                    'status' => 'error',
+                    'message' => (string)($response['error'] ?? 'Game server bridge error'),
+                ];
             }
 
-            return ['status' => 'ok', 'result' => 'Sent to ingame', 'game_server_response' => $response];
+            return [
+                'status' => 'ok',
+                'result' => 'Sent to ingame',
+                'game_server_response' => $response,
+            ];
         } catch (\Throwable $e) {
             error_log("handleGuildChat: exception - " . $e->getMessage());
             return ['status' => 'error', 'message' => 'Bridge error'];

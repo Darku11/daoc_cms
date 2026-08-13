@@ -168,6 +168,19 @@ These include components such as:
 
 Source and setup instructions for these bridge components are maintained in the
 [`daoc_cms_utilities`](https://github.com/Darku11/daoc_cms_utilities) repository.
+The dedicated
+[`AldhranConsole guide`](https://github.com/Darku11/daoc_cms_utilities/tree/main/AldhranConsole)
+covers its .NET 10 requirements, shared-secret configuration, endpoints, publishing and service checks.
+
+Live administration follows one core-neutral request chain:
+
+```text
+DAoC CMS -> AldhranConsole (HTTP :5100) -> AldhranBridge.cs (TCP :2000) -> DOL / OpenDAoC
+```
+
+The installer generates one game-server integration secret. Use the same value for the CMS
+`game_server_shared_secret`, AldhranConsole's `Console:SharedSecret`, and the `BRIDGE_SECRET`
+constant in each installed game-server script.
 
 The bridges are **not required for a basic DAoC CMS installation**.
 

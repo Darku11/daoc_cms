@@ -262,7 +262,7 @@ ksort($zonesByRegion);
         </div>
 
         <div class="field">
-            <label class="form-label" for="asp_key">ASP security key *</label>
+            <label class="form-label" for="asp_key">Game server integration secret *</label>
             <div class="secret">
                 <input type="text" class="form-control" id="asp_key" name="asp_key"
                        value="<?= htmlspecialchars($aspKey) ?>" required autocomplete="off">
@@ -270,8 +270,8 @@ ksort($zonesByRegion);
                 <button type="button" class="cmd-copy" data-copy-target="asp_key">Copy</button>
             </div>
             <span class="field-hint">
-                Shared secret between the site and your game server. Whatever you put here has to match
-                in the matching game server component.
+                Shared secret between the CMS, AldhranConsole and the game server scripts. The Bridges
+                step shows exactly where this same value must be copied.
             </span>
         </div>
 

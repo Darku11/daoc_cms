@@ -18,67 +18,16 @@ checkToken($_POST['csrf_token'] ?? '');
 // ── Input ─────────────────────────────────────────────────────
 $delay_minutes = max(0, min(60, (int)($_POST['delay_minutes'] ?? 0)));
 $announcement  = trim($_POST['announcement'] ?? '');
-$sender        = h($_SESSION['username'] ?? 'Admin');
+$sender        = trim((string)($_SESSION['username'] ?? 'Admin'));
 
-// ── Config from DB ───────────────────────────────────────────
-try {
-    $cfg = $db->query(
-        "SELECT setting_key, value FROM settings
-          WHERE setting_key IN (
-              'game_server_console_host',
-              'game_server_console_port',
-              'game_server_console_secret',
-              'game_server_bat_path'
-          )"
-    )->fetchAll(PDO::FETCH_KEY_PAIR);
-} catch (\Throwable $e) {
-    $cfg = [];
-}
-
-$console_host   = $cfg['game_server_console_host']   ?? '127.0.0.1';
-$console_port   = (int)($cfg['game_server_console_port']   ?? 5100);
-$console_secret = $cfg['game_server_console_secret'] ?? 'CHANGE_ME_IN_APPSETTINGS';
-$startup_path       = $cfg['game_server_bat_path']        ?? '';
+$startup_path = (string)($GLOBALS['cms_settings']['game_server_bat_path'] ?? '');
 
 // ── POST to AldhranConsole /restart ───────────────────────────
-$payload = json_encode([
+$decoded = aldhran_console_call('restart', [
     'delay_minutes' => $delay_minutes,
     'announcement'  => $announcement,
     'sender'        => $sender,
 ]);
-
-$url     = "http://{$console_host}:{$console_port}/restart";
-$context = stream_context_create([
-    'http' => [
-        'method'        => 'POST',
-        'header'        => implode("\r\n", [
-            'Content-Type: application/json',
-            'X-Aldhran-Secret: ' . $console_secret,
-            'Content-Length: ' . strlen($payload),
-        ]),
-        'content'       => $payload,
-        'timeout'       => 8,
-        'ignore_errors' => true,
-    ],
-]);
-
-$raw = @file_get_contents($url, false, $context);
-
-if ($raw === false || $raw === '') {
-    echo json_encode(['ok' => false, 'error' => "Cannot reach AldhranConsole at {$url}"]); exit;
-}
-
-// Extract JSON
-$start = strpos($raw, '{');
-$end   = strrpos($raw, '}');
-if ($start !== false && $end !== false) {
-    $raw = substr($raw, $start, $end - $start + 1);
-}
-
-$decoded = json_decode($raw, true);
-if (!is_array($decoded)) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid console response: ' . substr($raw, 0, 100)]); exit;
-}
 
 if (!($decoded['ok'] ?? false)) {
     echo json_encode(['ok' => false, 'error' => $decoded['error'] ?? 'Console error']); exit;

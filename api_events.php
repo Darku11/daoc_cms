@@ -6,9 +6,15 @@ header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $secret = $_POST['secret'] ?? '';
-    $expectedSecret = $GLOBALS['cms_settings']['game_server_bridge_secret'] ?? '';
+    $expectedSecret = trim((string)($GLOBALS['cms_settings']['game_server_shared_secret'] ?? ''));
+    if ($expectedSecret === '') {
+        $expectedSecret = trim((string)($GLOBALS['cms_settings']['game_server_bridge_secret'] ?? ''));
+    }
+    if ($expectedSecret === '' && defined('ASP_KEY')) {
+        $expectedSecret = trim((string)ASP_KEY);
+    }
 
-    if (empty($secret) || $secret !== $expectedSecret) {
+    if ($secret === '' || $expectedSecret === '' || !hash_equals($expectedSecret, (string)$secret)) {
         http_response_code(401);
         echo json_encode(['ok' => false, 'error' => 'Unauthorized']);
         exit;

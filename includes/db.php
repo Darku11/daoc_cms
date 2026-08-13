@@ -86,6 +86,7 @@ try {
 }
 
 require_once __DIR__ . '/game_server_compat.php';
+require_once __DIR__ . '/console_client.php';
 
 $_current_settings_version = $GLOBALS['cms_settings']['settings_version'] ?? '1';
 

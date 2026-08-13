@@ -6,7 +6,50 @@ if (!isset($installer)) {
     exit;
 }
 
+require_once __DIR__ . '/../includes/Security.php';
+
 use DAoCCMS\Setup\Britty;
+use DAoCCMS\Setup\Security;
+
+$security = new Security();
+$error = '';
+$success = !empty($_SESSION['setup_console']);
+$consoleHost = (string)($_SESSION['setup_console']['host'] ?? '127.0.0.1');
+$consolePort = (int)($_SESSION['setup_console']['port'] ?? 5100);
+$bridgePort = (int)($_SESSION['setup_console']['bridge_port'] ?? 2000);
+$sharedSecret = (string)(
+    $_SESSION['setup_config']['asp_key']
+    ?? $_SESSION['setup_crypto']['asp_key']
+    ?? ''
+);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_bridge_config'])) {
+    if (!$security->validateToken($_POST['csrf_token'] ?? '')) {
+        $error = 'Security token validation failed. Reload the page and try again.';
+    } else {
+        $consoleHost = trim((string)($_POST['console_host'] ?? ''));
+        $consolePort = (int)($_POST['console_port'] ?? 5100);
+        $bridgePort = (int)($_POST['bridge_port'] ?? 2000);
+
+        $validHost = $consoleHost !== ''
+            && !preg_match('/[\s\/?#]/', $consoleHost)
+            && (filter_var(trim($consoleHost, '[]'), FILTER_VALIDATE_IP) !== false
+                || preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i', $consoleHost));
+
+        if (!$validHost) {
+            $error = 'Enter a valid AldhranConsole host name or IP address without http:// or a path.';
+        } elseif ($consolePort < 1 || $consolePort > 65535 || $bridgePort < 1 || $bridgePort > 65535) {
+            $error = 'Console and bridge ports must be between 1 and 65535.';
+        } else {
+            $_SESSION['setup_console'] = [
+                'host' => $consoleHost,
+                'port' => $consolePort,
+                'bridge_port' => $bridgePort,
+            ];
+            $success = true;
+        }
+    }
+}
 
 $downloads = [
     'AldhranBridge.cs'  => 'The console bridge — status, kick, teleport, item delivery, guild chat relay, restart and more. This is what actually talks to your running game world.',
@@ -56,9 +99,11 @@ $downloads = [
             <b>AldhranConsole — runs as its own service, anywhere.</b>
             This is a separate .NET application, not a scripts-folder script. It can sit on the same machine
             as your game server or somewhere else entirely, as long as it can reach your DOL or OpenDAoC
-            server on port 2000 and your site can reach it on port 5100. Set <code class="inline-code">Console:BridgeSecret</code>
-            in its <code class="inline-code">appsettings.json</code> to match the secret you put in
-            <code class="inline-code">AldhranBridge.cs</code>.
+            server on port 2000 and your site can reach it on port 5100. Set <code class="inline-code">Console:SharedSecret</code>
+            in its <code class="inline-code">appsettings.json</code> to the integration secret shown below,
+            and use that same value in <code class="inline-code">AldhranBridge.cs</code>. Build, publish and
+            service instructions are in the
+            <a href="https://github.com/Darku11/daoc_cms_utilities/tree/main/AldhranConsole" target="_blank" rel="noopener noreferrer">AldhranConsole guide</a>.
         </span>
     </li>
     <li class="manifest-item">
@@ -76,19 +121,74 @@ $downloads = [
 
 <dl class="ledger">
     <dt>AldhranConsole (HTTP)</dt>
-    <dd>Port 5100 by default. Secret set once in ACP → General Settings → Bridge Connection → Console Secret, and mirrored in AldhranConsole's own config.</dd>
+    <dd>Port 5100 by default. The shared secret is stored in ACP → General Settings → Bridge Connection and mirrored in AldhranConsole's own config.</dd>
     <dt>AldhranBridge.cs (TCP)</dt>
-    <dd>Port 2000 by default. Secret set in ACP → General Settings → Bridge Connection → Bridge Secret, and mirrored as <code class="inline-code">BRIDGE_SECRET</code> in the .cs file below.</dd>
+    <dd>Port 2000 by default. Use the same shared secret as the <code class="inline-code">BRIDGE_SECRET</code> value in the .cs file below.</dd>
     <dt>Discord bot socket</dt>
     <dd>Port 15000 by default. Unrelated to the two above — configured separately under ACP → Bot Settings. Covered when you set up the bot, not here.</dd>
 </dl>
 
+<p class="act-slug" style="margin: 34px 0 14px;">CMS connection settings</p>
+
+<?php if ($error): ?>
+    <div class="alert alert-danger mb-4"><?= htmlspecialchars($error) ?></div>
+<?php elseif ($success): ?>
+    <div class="alert alert-success mb-4"><strong>Console connection saved.</strong></div>
+<?php endif; ?>
+
+<form method="POST" action="index.php?step=bridges">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($security->generateToken()) ?>">
+
+    <div class="field-grid">
+        <div class="field field--wide">
+            <label class="form-label" for="console_host">AldhranConsole host</label>
+            <input type="text" class="form-control" id="console_host" name="console_host"
+                   value="<?= htmlspecialchars($consoleHost) ?>" required autocomplete="off">
+            <span class="field-hint">Host name or IP as seen by the web server. Do not include <code class="inline-code">http://</code>.</span>
+        </div>
+        <div class="field">
+            <label class="form-label" for="console_port">HTTP port</label>
+            <input type="number" class="form-control" id="console_port" name="console_port"
+                   value="<?= $consolePort ?>" min="1" max="65535" required>
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="form-label" for="bridge_port">AldhranBridge TCP port</label>
+        <input type="number" class="form-control" id="bridge_port" name="bridge_port"
+               value="<?= $bridgePort ?>" min="1" max="65535" required>
+    </div>
+
+    <div class="field">
+        <label class="form-label" for="bridge_shared_secret">Shared secret</label>
+        <div class="secret">
+            <input type="text" class="form-control" id="bridge_shared_secret"
+                   value="<?= htmlspecialchars($sharedSecret) ?>" readonly>
+            <button type="button" class="cmd-copy" data-copy-target="bridge_shared_secret">Copy</button>
+        </div>
+        <span class="field-hint">
+            Generated in the previous step. Use this exact value for
+            <code class="inline-code">Console:SharedSecret</code> and every
+            <code class="inline-code">BRIDGE_SECRET</code> constant.
+        </span>
+    </div>
+
+    <button type="submit" name="save_bridge_config" class="btn btn-gold w-100 py-2 mt-3">
+        <i class="fas fa-save me-2"></i> Save the connection values
+    </button>
+</form>
+
+<p class="probe-note" style="margin-top: 14px;">
+    Saving these values configures the CMS only. AldhranConsole remains optional and must still be
+    published, configured and started separately before live administration features become available.
+</p>
+
 <p class="act-slug" style="margin: 34px 0 14px;">Downloads</p>
 
 <p class="probe-note" style="margin-bottom: 16px;">
-    Every secret and URL below is a placeholder — <code class="inline-code">CHANGE_ME_BRIDGE_SECRET</code>
-    and <code class="inline-code">YOUR-SITE.example</code>. Edit them before you compile, and make sure the
-    bridge secret matches what you save in ACP → General Settings once the CMS is live.
+    Every secret and URL inside the downloadable source files is a placeholder —
+    <code class="inline-code">CHANGE_ME_BRIDGE_SECRET</code> and <code class="inline-code">YOUR-SITE.example</code>.
+    Edit them before the game server compiles the scripts, using the shared secret shown above.
 </p>
 
 <ul class="probes">

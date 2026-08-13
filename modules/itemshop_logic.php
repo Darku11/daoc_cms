@@ -13,33 +13,10 @@ if (!isset($_SESSION['user_id'])) {
 
 header('Content-Type: application/json');
 
-define('IGC_SERVICE_URL', $GLOBALS['cms_settings']['igc_service_url'] ?? 'http://127.0.0.1:5100');
-define('IGC_SECRET',      $GLOBALS['cms_settings']['igc_api_secret']  ?? '');
-
 $itemshop_enabled = (int)($GLOBALS['cms_settings']['itemshop_enabled'] ?? 1);
 if (!$itemshop_enabled) {
     echo json_encode(['ok' => false, 'error' => 'The item shop is currently disabled.']);
     exit;
-}
-
-function igc_call(string $endpoint, array $payload = [], string $method = 'POST'): array {
-    $url = IGC_SERVICE_URL . '/' . ltrim($endpoint, '/');
-    $ch  = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 8,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'X-Aldhran-Secret: ' . IGC_SECRET],
-    ]);
-    if ($method === 'POST') {
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    }
-    $raw = curl_exec($ch);
-    $err = curl_error($ch);
-    curl_close($ch);
-    if ($err) return ['ok' => false, 'error' => 'connection_failed'];
-    $data = json_decode($raw, true);
-    return $data ?? ['ok' => false, 'error' => 'invalid_response'];
 }
 
 function itemshop_get_chars_with_status(PDO $db, string $accountName): array {
@@ -47,7 +24,7 @@ function itemshop_get_chars_with_status(PDO $db, string $accountName): array {
     $stmt->execute([$accountName]);
     $chars = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $status       = igc_call('status', [], 'GET');
+    $status       = aldhran_console_call('status', [], 'GET');
     $online_names = [];
     if ($status['ok'] ?? false) {
         foreach ($status['players'] ?? [] as $p) {
@@ -267,7 +244,7 @@ if ($action === 'purchase') {
         exit;
     }
 
-    $result = igc_call('shop/purchase', [
+    $result = aldhran_console_call('shop/purchase', [
         'buyer_name' => $charName,
         'source'     => $source,
         'item_ref'   => $ref,
