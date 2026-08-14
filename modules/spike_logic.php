@@ -65,7 +65,7 @@ foreach ($raw_online_users as $ou) {
     if ((int)$ou['id'] === $myId) {
         $is_my_anon_status = (int)$ou['is_anonymous'];
     }
-    
+
     if ((int)$ou['is_anonymous'] === 1) {
         if ($userPriv >= 4 || (int)$ou['id'] === $myId) {
             $online_users[] = $ou;
@@ -93,7 +93,7 @@ try {
            FROM users
           WHERE standing < 5
           ORDER BY created_at DESC, id DESC
-          LIMIT 5"
+          LIMIT 1"
     );
     $recent_members = $stmt_recent_members->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) {

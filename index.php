@@ -5,7 +5,6 @@ ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
 ini_set('log_errors', '1');
 
-// Normal CMS execution starts here
 ob_start();
 define('IN_CMS', true);
 
@@ -38,13 +37,12 @@ if (isset($_SESSION['user_id'])) {
     }
 }
 
-// --- 2. GLOBAL VARIABLES ---
 $page_slug     = preg_replace('/[^a-z0-9_\-]/i', '', $_GET['p'] ?? 'home');
 $userPriv      = (int)($_SESSION['priv_level'] ?? 0);
 $currentUserId = (int)($_SESSION['user_id'] ?? 0);
 $can_edit      = ($userPriv >= 4);
 $can_edit_um   = ($userPriv >= 3);
-$myStanding    = (int)($_SESSION['user_standing'] ?? 0);
+$myStanding    = (int)($_SESSION['standing'] ?? $_SESSION['user_standing'] ?? 0);
 
 if ($myStanding >= 5) {
     session_destroy();
@@ -66,10 +64,7 @@ if ($currentUserId > 0) {
     $unread_count = (int)$stmt_notif->fetch()['cnt'];
 }
 
-// --- 3. MAINTENANCE ---
-clearstatcache();
-$lock_path      = __DIR__ . '/maintenance.lock';
-$is_maintenance = file_exists($lock_path);
+$is_maintenance = (($GLOBALS['cms_settings']['maintenance_mode'] ?? '0') === '1');
 
 if ($is_maintenance && $userPriv < 5 && $page_slug !== 'login') {
     $stmt_m = $db->prepare("SELECT value FROM settings WHERE setting_key = 'maintenance_text' LIMIT 1");
@@ -112,45 +107,46 @@ try {
     $cms_settings = $db->query("SELECT setting_key, value FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
 } catch (PDOException $e) {}
 
-$hide_sidebar    = true;
+$hide_sidebar = true;
 
 $module_slug_map = [
-    'spike'         => 'mod_forum',
-    'viewboard'     => 'mod_forum',
-    'viewthread'    => 'mod_forum',
-    'newthread'     => 'mod_forum',
-    'editpost'      => 'mod_forum',
-    'spike_admin'   => 'mod_forum',
-    'notifications' => 'mod_forum',
-    'herald'        => 'mod_herald',
-    'rvr_map'       => 'mod_rvr_map',
-    'warmap'        => 'mod_rvr_map',
-    'faq'           => 'mod_faq',
-    'faq_admin'     => 'mod_faq',
-    'team'          => 'mod_team',
-    'register'      => 'mod_register',
-    'pve'           => 'mod_pve',
-    'pve_bestiary'  => 'mod_pve',
-    'pve_dungeons'  => 'mod_pve',
-    'pve_quests'    => 'mod_pve',
-    'pve_items'     => 'mod_pve',
+    'spike'            => 'mod_forum',
+    'viewboard'        => 'mod_forum',
+    'viewthread'       => 'mod_forum',
+    'newthread'        => 'mod_forum',
+    'editpost'         => 'mod_forum',
+    'spike_admin'      => 'mod_forum',
+    'notifications'    => 'mod_forum',
+    'herald'           => 'mod_herald',
+    'herald_char'      => 'mod_herald',
+    'herald_guild'     => 'mod_herald',
+    'rvr_map'          => 'mod_rvr_map',
+    'warmap'           => 'mod_rvr_map',
+    'faq'              => 'mod_faq',
+    'faq_admin'        => 'mod_faq',
+    'team'             => 'mod_team',
+    'register'         => 'mod_register',
+    'pve'              => 'mod_pve',
+    'pve_bestiary'     => 'mod_pve',
+    'pve_boss'         => 'mod_pve',
+    'pve_dungeons'     => 'mod_pve',
+    'pve_quests'       => 'mod_pve',
+    'pve_quest_detail' => 'mod_pve',
+    'pve_item'         => 'mod_pve',
+    'pve_items'        => 'mod_pve',
 ];
 
-// --- 4. MODULE DISABLED / 404 ---
 if ($userPriv < 4 && isset($module_slug_map[$page_slug])) {
     $required_setting = $module_slug_map[$page_slug];
     if (($cms_settings[$required_setting] ?? '1') === '0') {
         $article_title = '404';
         $module_content = '<div class="info-msg">' . t('general.module_disabled', [], 'This section is currently not available.') . '</div>';
-
-        // Clear the output buffer and pass it directly to the template engine
         while (ob_get_level()) { ob_end_clean(); }
         cms_render_template('layout', get_defined_vars());
         exit;
     }
 }
 
-// --- 5. PAGE CONTENT FETCHING ---
 if ($can_edit) {
     $stmt_page = $db->prepare("SELECT title, content, meta_title, meta_description, hero_image, status FROM pages WHERE slug = ?");
     $stmt_page->execute([$page_slug]);
@@ -166,9 +162,6 @@ if ($can_edit) {
 }
 $data = $stmt_page->fetch();
 
-// No per-page hero image: fall back to the site-wide default from
-// General Settings. Applies to module-driven routes too (Forum, Herald,
-// ...), since those still reach this point even without a pages row.
 if (empty($data['hero_image'])) {
     $default_hero_stmt = $db->prepare("SELECT value FROM settings WHERE setting_key = 'default_hero_image' LIMIT 1");
     $default_hero_stmt->execute();
@@ -196,7 +189,6 @@ if ($can_edit && isset($_POST['update_page_content'])) {
     exit;
 }
 
-// --- 6. BUSINESS LOGIC INCLUDES ---
 $logic_map = [
     'discord_callback' => 'includes/discord_logic.php',
     'um'               => $can_edit_um ? 'modules/um_logic.php'        : null,
@@ -221,9 +213,6 @@ $page_title_map = [
 ];
 $article_title = $page_title_map[$page_slug] ?? h($data['title'] ?? ucwords(str_replace('_', ' ', $page_slug)));
 
-// ==========================================
-// START VIEW RENDERING (CONTENT BUFFERING)
-// ==========================================
 ob_start();
 
 if (isset($_GET['edit_mode']) && $can_edit): ?>
@@ -310,8 +299,6 @@ if (!$pluginLoaded) {
         $active_style_name = $cms_settings['active_theme'] ?? 'default';
         $safe_style_name = preg_replace('/[^a-zA-Z0-9_\-]/', '', $active_style_name);
         $basename = basename($view_to_include);
-
-        // Theme override path (matches htdocs/templates/ structure)
         $override_file = "templates/{$safe_style_name}/{$basename}";
 
         if (file_exists($override_file)) {
@@ -324,17 +311,11 @@ if (!$pluginLoaded) {
     }
 }
 
-// 7. END OUTPUT BUFFERING
 $module_content = ob_get_clean();
 
-// 8. PASS DATA TO THE MASTER LAYOUT
 if (function_exists('cms_render_template')) {
-    // get_defined_vars() dynamically passes ALL variables from this scope to the template.
-    // This gives the header, footer, and layout access to variables such as
-    // $data, $unread_count, $hide_sidebar, etc.
     cms_render_template('layout', get_defined_vars());
 } else {
-    // Fallback in case the template engine is not available for any reason
     die(t(
         'template_engine_not_loaded',
         'Architecture Error: Template engine not loaded.'

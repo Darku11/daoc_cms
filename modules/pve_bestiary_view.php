@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 
+require_once __DIR__ . '/../includes/pve_catalog.php';
+
 if (isset($_POST['get_spawns'])) {
     if (ob_get_level()) ob_clean();
 
     checkToken($_POST['csrf_token'] ?? '');
 
-    $name   = $_POST['mob_name'] ?? '';
-    $region = $_POST['region']   ?? '';
+    $name   = trim((string)($_POST['mob_name'] ?? ''));
+    $region = (int)($_POST['region'] ?? 0);
     $level  = (int)($_POST['level'] ?? 0);
 
     $stmt_spawns = $db->prepare("
@@ -38,7 +40,7 @@ if (isset($_POST['get_spawns'])) {
             if ($spawns) {
                 foreach ($spawns as $s) {
                     $zName = h($s['ZoneName'] ?: 'Unknown Zone');
-                    echo "<tr class='loc-row' style='display:none;'><td>" . (int)round($s['X']) . "</td><td>" . (int)round($s['Y']) . "</td><td>" . (int)round($s['Z']) . "</td><td class='bestiary-zone-name'>" . $zName . "</td></tr>";
+                    echo "<tr class='loc-row'><td>" . (int)round($s['X']) . "</td><td>" . (int)round($s['Y']) . "</td><td>" . (int)round($s['Z']) . "</td><td class='bestiary-zone-name'>" . $zName . "</td></tr>";
                 }
             } else {
                 echo "<tr><td colspan='4'>" . t('pve_bestiary.ajax.no_locations', [], 'No locations found.') . "</td></tr>";
@@ -61,16 +63,37 @@ if (isset($_POST['get_spawns'])) {
             if ($loot) {
                 $iconBase = "assets/img/icons/items/";
                 foreach ($loot as $l) {
-                    $itemName    = h($l['ItemName'] ?: $l['ItemTemplateID']);
+                    $rawItemId   = (string)($l['ItemTemplateID'] ?? '');
+                    $itemName    = h($l['ItemName'] ?: $rawItemId);
                     $iconFile    = (!empty($l['Model'])) ? ((int)$l['Model']) . ".png" : "default.png";
                     $fullPath    = h($iconBase . $iconFile);
                     $defaultPath = h($iconBase . "default.png");
                     $modelLabel  = h((string)($l['Model'] ?? ''));
-                    echo "<tr class='loot-row' style='display:none;'>";
+                    $itemDetail  = $rawItemId !== '' ? daoc_pve_item_detail($db, $rawItemId) : null;
+                    $meta = [];
+                    if ($itemDetail) {
+                        if ($itemDetail['class_restricted']) {
+                            $meta[] = count($itemDetail['excluded_classes']) . ' ' . t('pve_bestiary.restricted_classes', [], 'restricted classes');
+                        } else {
+                            $meta[] = t('pve_bestiary.all_classes', [], 'all classes');
+                        }
+                        if ($itemDetail['merchant_count'] > 0) {
+                            $meta[] = $itemDetail['merchant_count'] . ' ' . t('pve_bestiary.merchants', [], 'merchants');
+                        }
+                    }
+
+                    echo "<tr class='loot-row'>";
                     echo "<td class='bestiary-icon-cell'>";
                     echo "<img src='$fullPath' title='Model: $modelLabel' onerror=\"this.src='$defaultPath';\" class='bestiary-item-icon'>";
                     echo "</td>";
-                    echo "<td><span class='bestiary-item-name'>$itemName</span></td>";
+                    echo "<td>";
+                    if ($rawItemId !== '') {
+                        echo "<a class='bestiary-item-name bestiary-item-link' href='?p=pve_item&amp;id=" . rawurlencode($rawItemId) . "'>$itemName</a>";
+                    } else {
+                        echo "<span class='bestiary-item-name'>$itemName</span>";
+                    }
+                    if ($meta) echo "<span class='bestiary-item-meta'>" . h(implode(' · ', $meta)) . "</span>";
+                    echo "</td>";
                     echo "<td class='bestiary-loot-chance'>" . (int)$l['Chance'] . "%</td>";
                     echo "</tr>";
                 }
@@ -93,11 +116,11 @@ if (isset($_POST['get_spawns'])) {
     exit();
 }
 
-$search  = $_GET['search'] ?? '';
+$search  = trim((string)($_GET['search'] ?? ''));
 $realm   = (int)($_GET['realm'] ?? 0);
-$sort    = $_GET['sort'] ?? 'lvl_desc';
-$min_lvl = (int)($_GET['min_lvl'] ?? 1);
-$max_lvl = (int)($_GET['max_lvl'] ?? 150);
+$sort    = (string)($_GET['sort'] ?? 'lvl_desc');
+$min_lvl = max(0, (int)($_GET['min_lvl'] ?? 1));
+$max_lvl = max($min_lvl, (int)($_GET['max_lvl'] ?? 150));
 $zone_id = (int)($_GET['zone'] ?? 0);
 
 $order_map = [
@@ -134,17 +157,20 @@ if ($zone_id > 0) {
 }
 
 $zones_list = $db->query("SELECT ZoneID, Name FROM zones ORDER BY Name ASC")->fetchAll();
-
 $where_str = "WHERE " . implode(" AND ", $where_clauses);
 
 $limit  = 30;
 $page   = max(1, (int)($_GET['pg'] ?? 1));
 $offset = ($page - 1) * $limit;
 
-$stmt_count = $db->prepare("SELECT COUNT(*) FROM (SELECT Name FROM mob $where_str GROUP BY Name, Region, Level) AS grouped");
+$stmt_count = $db->prepare("SELECT COUNT(*) FROM (SELECT Name FROM mob $where_str GROUP BY Name, Region, Level, Realm) AS grouped");
 $stmt_count->execute($params);
 $total_mobs  = (int)$stmt_count->fetchColumn();
-$total_pages = (int)ceil($total_mobs / $limit);
+$total_pages = max(1, (int)ceil($total_mobs / $limit));
+if ($page > $total_pages) {
+    $page = $total_pages;
+    $offset = ($page - 1) * $limit;
+}
 
 $stmt_mobs = $db->prepare("SELECT Name, Level, Realm, Region, COUNT(*) as spawn_count, MAX(X) as sx, MAX(Y) as sy
                             FROM mob $where_str
@@ -209,10 +235,10 @@ if (!function_exists('getRealmName')) {
         <div class="bestiary-filter-sort">
             <label class="um-label"><?= t('pve_bestiary.filter.sort', [], 'Sort'); ?></label>
             <select name="sort" class="um-input">
-                <option value="lvl_desc" <?php if ($sort == 'lvl_desc') echo 'selected'; ?>><?= t('pve_bestiary.filter.sort.lvl_high', [], 'Lvl High'); ?></option>
-                <option value="lvl_asc"  <?php if ($sort == 'lvl_asc')  echo 'selected'; ?>><?= t('pve_bestiary.filter.sort.lvl_low', [], 'Lvl Low'); ?></option>
-                <option value="name_asc" <?php if ($sort == 'name_asc') echo 'selected'; ?>><?= t('pve_bestiary.filter.sort.name_az', [], 'Name A-Z'); ?></option>
-                <option value="region"   <?php if ($sort == 'region')   echo 'selected'; ?>><?= t('pve_bestiary.filter.sort.region', [], 'Region'); ?></option>
+                <option value="lvl_desc" <?php if ($sort === 'lvl_desc') echo 'selected'; ?>><?= t('pve_bestiary.filter.sort.lvl_high', [], 'Lvl High'); ?></option>
+                <option value="lvl_asc"  <?php if ($sort === 'lvl_asc')  echo 'selected'; ?>><?= t('pve_bestiary.filter.sort.lvl_low', [], 'Lvl Low'); ?></option>
+                <option value="name_asc" <?php if ($sort === 'name_asc') echo 'selected'; ?>><?= t('pve_bestiary.filter.sort.name_az', [], 'Name A-Z'); ?></option>
+                <option value="region"   <?php if ($sort === 'region')   echo 'selected'; ?>><?= t('pve_bestiary.filter.sort.region', [], 'Region'); ?></option>
             </select>
         </div>
         <button type="submit" class="btn-gold bestiary-filter-btn"><?= t('pve_bestiary.filter.btn', [], 'FILTER'); ?></button>
@@ -228,8 +254,12 @@ if (!function_exists('getRealmName')) {
                     $zoneName = $stmt_zone_fallback->fetchColumn() ?: 'Unknown Zone';
                 }
             ?>
-                <div class="mob-card"
-                     onclick="showDetails('<?php echo addslashes($m['Name']); ?>', '<?php echo addslashes($m['Region']); ?>', <?php echo (int)$m['Level']; ?>)">
+                <div class="mob-card" role="button" tabindex="0"
+                     data-mob-name="<?= h($m['Name']) ?>"
+                     data-region="<?= (int)$m['Region'] ?>"
+                     data-level="<?= (int)$m['Level'] ?>"
+                     onclick="showDetails(this.dataset.mobName, this.dataset.region, this.dataset.level)"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDetails(this.dataset.mobName,this.dataset.region,this.dataset.level);}">
                     <div class="bestiary-mob-realm"><?php echo h(getRealmName($m['Realm'])); ?></div>
                     <div class="bestiary-mob-header">
                         <strong class="bestiary-mob-name"><?php echo h($m['Name']); ?></strong>
@@ -265,8 +295,8 @@ if (!function_exists('getRealmName')) {
 </div>
 
 <div id="spawnModal" onclick="if(event.target===this) closeModal()">
-    <div class="modal-content">
-        <button onclick="closeModal()" class="bestiary-modal-close">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <button onclick="closeModal()" class="bestiary-modal-close" aria-label="<?= h(t('pve_bestiary.close', [], 'Close')) ?>">
             <i class="fas fa-times"></i>
         </button>
         <h3 id="modalTitle" class="bestiary-modal-title"></h3>
@@ -275,7 +305,7 @@ if (!function_exists('getRealmName')) {
 </div>
 
 <script>
-const BESTIARY_CSRF = '<?php echo $bestiary_token; ?>';
+const BESTIARY_CSRF = <?= json_encode($bestiary_token) ?>;
 
 let lootCurPage = 1;
 const lootLimit = 8;
@@ -298,7 +328,7 @@ function initLootPagination() {
     if (rows.length === 0) return;
     lootTotal = Math.ceil(rows.length / lootLimit);
     lootCurPage = 1;
-    if (lootTotal > 0) { changeLootPage(0); }
+    changeLootPage(0);
 }
 
 let locCurPage = 1;
@@ -322,13 +352,13 @@ function initLocPagination() {
     if (rows.length === 0) return;
     locTotal = Math.ceil(rows.length / locLimit);
     locCurPage = 1;
-    if (locTotal > 0) { changeLocPage(0); }
+    changeLocPage(0);
 }
 
 function showDetails(name, region, level) {
     document.getElementById('spawnModal').style.display = 'flex';
     document.getElementById('modalTitle').textContent = name + ' — ' + region + ' (Lvl ' + level + ')';
-    document.getElementById('modalBody').innerHTML = '<p class="bestiary-loading"><?= t('pve_bestiary.js.loading', [], 'Consulting the archives...'); ?></p>';
+    document.getElementById('modalBody').innerHTML = '<p class="bestiary-loading"><?= h(t('pve_bestiary.js.loading', [], 'Consulting the archives...')); ?></p>';
 
     const fd = new FormData();
     fd.append('get_spawns', '1');
@@ -338,13 +368,16 @@ function showDetails(name, region, level) {
     fd.append('csrf_token', BESTIARY_CSRF);
 
     fetch(window.location.href, { method: 'POST', body: fd })
-        .then(r => r.text())
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
         .then(html => {
             document.getElementById('modalBody').innerHTML = html;
             initLootPagination();
             initLocPagination();
         })
-        .catch(() => { document.getElementById('modalBody').innerHTML = '<p class="bestiary-error"><?= t('pve_bestiary.js.error', [], 'Protocol error.'); ?></p>'; });
+        .catch(() => { document.getElementById('modalBody').innerHTML = '<p class="bestiary-error"><?= h(t('pve_bestiary.js.error', [], 'Protocol error.')); ?></p>'; });
 }
 
 function closeModal() {

@@ -44,6 +44,8 @@ DAoC CMS supports:
 - **Dawn of Light (DOL)**
 - **OpenDAoC**
 
+The server implementation is selected during setup and treated as an installation-level choice. It is not intended to be switched from the ACP after installation.
+
 Because both server implementations differ in certain areas, DAoC CMS uses compatibility layers where necessary.
 
 Database schemas, field names, APIs and server-side behavior should not automatically be assumed to be identical between DOL and OpenDAoC.
@@ -104,10 +106,10 @@ You will be asked to provide information such as:
 
 - CMS database connection
 - Game server database connection
-- Server configuration
+- Server implementation and bridge configuration
 - Administrator account information
 
-The installer also checks the required PHP environment and creates installation-specific security values.
+The installer also checks the required PHP environment, creates installation-specific security values and applies the database migrations required by the installed release.
 
 Once the setup has been completed successfully, you can log into the DAoC CMS administration area.
 
@@ -117,8 +119,7 @@ After installation, most of the remaining configuration can be done through the 
 
 From there you can configure your installation, including:
 
-- Server information
-- Server implementation
+- Server information and bridge connection
 - Modules
 - Website content
 - Theme
@@ -161,8 +162,8 @@ These include components such as:
 
 - **Aldhran Bridge** (`AldhranBridge.cs`) — in-game console bridge, runs inside your DOL/OpenDAoC server
 - **Aldhran Console** — the ASP.NET service that connects the CMS to Aldhran Bridge over HTTP
+- **Guild Chat Bridge** (`GuildChatBridge.cs`) — relays in-game guild chat to the configured Discord guild channel
 - **Game Server C# Scripts**
-- **Live Events Integration**
 - **Discord Bot Integration**
 - **Launcher / Portal APIs**
 
@@ -184,10 +185,12 @@ DAoC CMS -> AldhranConsole (HTTP :5100) -> AldhranBridge.cs (TCP :2000) -> DOL /
 
 The installer generates one game-server integration secret and a ready-to-use
 `daoc_cms_bridge.conf`. Put the configuration file in the game server's `config/` directory and
-install `DAoCCmsBridgeConfig.cs` with the selected feature scripts in `scripts/`. AldhranBridge,
-GuildChatBridge and CMSLiveEvents all read their CMS URL, secret and TCP port from that one file;
-their C# sources do not need site-specific edits. The same secret is configured once in
-AldhranConsole as `Console:SharedSecret`.
+install `DAoCCmsBridgeConfig.cs` with the selected feature scripts in `scripts/`. AldhranBridge and
+GuildChatBridge read their CMS callback URL, secret and TCP port from that one file; their C# sources
+do not need site-specific edits. The same secret is configured once in AldhranConsole as
+`Console:SharedSecret`.
+
+The CMS callback at `api_events.php` is intentionally limited to the authenticated guild-chat bridge. PvP kills, keep captures, relic events and other world-event announcements are not part of the 1.0.0 bridge contract.
 
 After installation, SuperAdmins can update the values and download a new configuration file under
 ACP → General Settings → Game Server. Replacing the file requires a game-server restart but no
@@ -195,7 +198,7 @@ script rebuild.
 
 The bridges are **not required for a basic DAoC CMS installation**.
 
-They are used when features require live communication with the game server, functionality beyond direct database access, ingame administration, live events or communication with external services.
+They are used when features require live communication with the game server, functionality beyond direct database access, ingame administration, guild-chat relay or communication with external services.
 
 Depending on the component, additional configuration may be required on the web server or game server.
 

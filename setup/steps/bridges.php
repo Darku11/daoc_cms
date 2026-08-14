@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_bridge_config'])
         if (!$validHost) {
             $error = 'Enter a valid AldhranConsole host name or IP address without http:// or a path.';
         } elseif (!$validCmsApiUrl) {
-            $error = 'Enter an absolute HTTP or HTTPS URL for the CMS event API.';
+            $error = 'Enter an absolute HTTP or HTTPS URL for the CMS guild-chat callback.';
         } elseif ($consolePort < 1 || $consolePort > 65535 || $bridgePort < 1 || $bridgePort > 65535) {
             $error = 'Console and bridge ports must be between 1 and 65535.';
         } else {
@@ -63,9 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_bridge_config'])
 }
 
 $downloads = [
-    'DAoCCmsBridgeConfig.cs' => 'Required shared configuration reader. All three bridge scripts obtain their URL, secret and TCP port through this file.',
-    'AldhranBridge.cs'  => 'The console bridge — status, kick, teleport, item delivery, guild chat relay, restart and more. This is what actually talks to your running game world.',
-    'CMSLiveEvents.cs'  => 'Pushes PvP kill and keep-capture events from the game to your site\'s live event feed.',
+    'DAoCCmsBridgeConfig.cs' => 'Required shared configuration reader. AldhranBridge and GuildChatBridge obtain their URL, secret and TCP port through this file.',
+    'AldhranBridge.cs'  => 'The console bridge — status, kick, teleport, item delivery, restart and more. This is what actually talks to your running game world.',
     'GuildChatBridge.cs'=> 'Relays in-game guild chat to Discord by re-registering the &gu command in the scripts folder.',
 ];
 ?>
@@ -73,12 +72,9 @@ $downloads = [
 <h3 class="step-title"><i class="fas fa-link"></i>The Sinews</h3>
 
 <?php Britty::say([
-    'Some of what your site can do reaches straight into the running game — kicking a player, ' .
-    'handing over a purchased item, echoing guild chat into Discord. None of that travels through ' .
-    'the CMS database. It needs its own connective tissue between the site and the server.',
-    'This step is entirely optional — skip it if you only want the website and forum. Come back ' .
-    'whenever you decide to wire up the console, the itemshop, or live event announcements.',
-    'The three feature scripts share one configuration reader and one generated configuration file. No URL, secret or port needs to be edited in C#.',
+    'Some of what your site can do reaches straight into the running game — kicking a player, handing over a purchased item, or echoing guild chat into Discord. None of that travels through the CMS database. It needs its own connective tissue between the site and the server.',
+    'This step is entirely optional — skip it if you only want the website and forum. Come back whenever you decide to wire up the console, itemshop, or guild chat bridge.',
+    'The feature scripts share one configuration reader and one generated configuration file. No URL, secret or port needs to be edited in C#.',
 ]); ?>
 
 <p class="act-slug" style="margin-bottom: 14px;">How a request actually travels</p>
@@ -99,10 +95,9 @@ $downloads = [
         <span class="m-num">01</span>
         <span class="m-body">
             <b>DOL / OpenDAoC <code class="inline-code">scripts/</code> folder.</b>
-            <code class="inline-code">DAoCCmsBridgeConfig.cs</code>, <code class="inline-code">AldhranBridge.cs</code>,
-            <code class="inline-code">CMSLiveEvents.cs</code>, and <code class="inline-code">GuildChatBridge.cs</code>
-            all belong here and work unchanged on
-            either core. DOL normally compiles them when the server starts. OpenDAoC builds affected by the
+            <code class="inline-code">DAoCCmsBridgeConfig.cs</code>, <code class="inline-code">AldhranBridge.cs</code>, and
+            <code class="inline-code">GuildChatBridge.cs</code> belong here and work unchanged on either core.
+            DOL normally compiles them when the server starts. OpenDAoC builds affected by the
             <code class="inline-code">Bad IL format</code> compiler failure can use
             <code class="inline-code">tools/Build-OpenDAoCScriptAssembly.ps1</code> from the utilities repository.
             The builder targets the exact installed release and writes OpenDAoC's script-cache metadata, so
@@ -180,12 +175,12 @@ $downloads = [
     </div>
 
     <div class="field">
-        <label class="form-label" for="cms_api_url">CMS event API URL</label>
+        <label class="form-label" for="cms_api_url">CMS guild-chat callback URL</label>
         <input type="url" class="form-control" id="cms_api_url" name="cms_api_url"
                value="<?= htmlspecialchars($cmsApiUrl) ?>" required autocomplete="off">
         <span class="field-hint">
             Usually your public CMS URL followed by <code class="inline-code">/api_events.php</code>.
-            The game server must be able to reach it.
+            GuildChatBridge must be able to reach it.
         </span>
     </div>
 
@@ -197,8 +192,8 @@ $downloads = [
             <button type="button" class="cmd-copy" data-copy-target="bridge_shared_secret">Copy</button>
         </div>
         <span class="field-hint">
-            Generated in the previous step. The configuration download below writes it once for every
-            game-server script. Use the same value for <code class="inline-code">Console:SharedSecret</code>
+            Generated in the previous step. The configuration download below writes it once for the
+            game-server scripts. Use the same value for <code class="inline-code">Console:SharedSecret</code>
             in AldhranConsole.
         </span>
     </div>
@@ -219,7 +214,7 @@ $downloads = [
     <div class="alert alert-success mb-4">
         <strong>1. Download the configured bridge file.</strong><br>
         Save it as <code class="inline-code">config/daoc_cms_bridge.conf</code> below your DOL/OpenDAoC
-        server root. It supplies the same URL, secret and TCP port to all three feature scripts.
+        server root. It supplies the same URL, secret and TCP port to the bridge scripts.
         Restrict read access to the game-server account because the file contains the shared secret.
         <div class="mt-3">
             <a href="download_bridge_config.php?csrf_token=<?= rawurlencode($security->generateToken()) ?>"

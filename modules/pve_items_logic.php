@@ -2,16 +2,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 if (!defined('IN_CMS')) exit;
 
+require_once __DIR__ . '/../includes/pve_catalog.php';
+
 if (!isset($_GET['ajax']) || $_GET['ajax'] !== '1') return;
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
-    header('Content-Type: application/json');
+    header('Content-Type: application/json; charset=UTF-8');
     echo json_encode(['ok' => false, 'error' => 'login_required']);
     exit;
 }
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=UTF-8');
+header('X-Content-Type-Options: nosniff');
 
 $itemshop_enabled = (int)($GLOBALS['cms_settings']['itemshop_enabled'] ?? 1);
 if (!$itemshop_enabled) {
@@ -19,7 +22,6 @@ if (!$itemshop_enabled) {
     exit;
 }
 
-/** Resolve only the requested character names through the core-neutral bridge. */
 function itemshop_get_online_names(array $character_names): array {
     $requested = [];
     foreach ($character_names as $name) {
@@ -49,12 +51,6 @@ function itemshop_get_online_names(array $character_names): array {
     return ['ok' => true, 'names' => array_values(array_unique($online_names))];
 }
 
-/**
- * Returns all characters of the logged-in account and marks which one
- * is currently online according to the bridge. Never trust the client
- * about which character is "their own" — always resolve it via the
- * account->char link (AccountName = users.username).
- */
 function itemshop_get_chars_with_status(PDO $db, string $accountName): array {
     $stmt = $db->prepare("SELECT Name, Realm, Level, Class FROM dolcharacters WHERE AccountName = ? ORDER BY Level DESC");
     $stmt->execute([$accountName]);
@@ -75,12 +71,14 @@ function itemshop_get_chars_with_status(PDO $db, string $accountName): array {
     ];
 }
 
-$action = $_POST['action'] ?? '';
+function itemshop_valid_source(string $source): bool {
+    return in_array($source, ['system', 'housing'], true);
+}
+
+$action = trim((string)($_POST['action'] ?? ''));
 checkToken($_POST['csrf_token'] ?? '');
+$username = (string)($_SESSION['username'] ?? '');
 
-$username = $_SESSION['username'] ?? '';
-
-// ── status: character list + online status (all own chars, not just one) ──
 if ($action === 'status') {
     $char_status = itemshop_get_chars_with_status($db, $username);
     if (!$char_status['ok']) {
@@ -93,23 +91,21 @@ if ($action === 'status') {
     }
 
     $chars = $char_status['characters'];
-    $online_chars = array_values(array_filter($chars, fn($c) => $c['online']));
+    $online_chars = array_values(array_filter($chars, static fn($c) => $c['online']));
     echo json_encode([
         'ok'            => true,
         'characters'    => $chars,
         'online_chars'  => $online_chars,
-        // Legacy clients / backwards compatibility: still return the first one
         'online_char'   => $online_chars[0] ?? null,
     ]);
     exit;
 }
 
-// ── system_list: paginated catalog list (potions + respec) ──────
 if ($action === 'system_list') {
     $page     = max(1, (int)($_POST['page'] ?? 1));
     $per_page = 60;
     $offset   = ($page - 1) * $per_page;
-    $search   = trim($_POST['search'] ?? '');
+    $search   = trim((string)($_POST['search'] ?? ''));
 
     $where  = "ssi.active = 1";
     $params = [];
@@ -126,6 +122,11 @@ if ($action === 'system_list') {
         ");
         $stmtCount->execute($params);
         $total = (int)$stmtCount->fetchColumn();
+        $pages = max(1, (int)ceil($total / $per_page));
+        if ($page > $pages) {
+            $page = $pages;
+            $offset = ($page - 1) * $per_page;
+        }
 
         $stmt = $db->prepare("
             SELECT ssi.item_id, ssi.category, ssi.base_price, it.Name, it.Level
@@ -138,13 +139,13 @@ if ($action === 'system_list') {
         $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $items = array_map(function($r) {
+        $items = array_map(static function($r) {
             $price = (int)round($r['base_price'] * 1.30);
             return [
-                'item_id' => $r['item_id'],
-                'name'    => $r['Name'],
+                'item_id' => (string)$r['item_id'],
+                'name'    => (string)$r['Name'],
                 'level'   => (int)$r['Level'],
-                'category'=> $r['category'],
+                'category'=> (string)$r['category'],
                 'price'   => $price,
                 'price_formatted' => number_format($price) . 'c',
             ];
@@ -154,7 +155,7 @@ if ($action === 'system_list') {
             'ok'    => true,
             'items' => $items,
             'page'  => $page,
-            'pages' => max(1, (int)ceil($total / $per_page)),
+            'pages' => $pages,
             'total' => $total,
         ]);
     } catch (PDOException $e) {
@@ -163,10 +164,15 @@ if ($action === 'system_list') {
     exit;
 }
 
-// ── search: item search for the search/popup flow (housing & system) ──
 if ($action === 'search') {
-    $term   = trim($_POST['term'] ?? '');
-    $source = trim($_POST['source'] ?? 'system');
+    $term   = trim((string)($_POST['term'] ?? ''));
+    $source = trim((string)($_POST['source'] ?? 'system'));
+
+    if (!itemshop_valid_source($source)) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'invalid_source']);
+        exit;
+    }
 
     if (mb_strlen($term) < 2) {
         echo json_encode(['ok' => true, 'results' => []]);
@@ -185,18 +191,16 @@ if ($action === 'search') {
         $stmt->execute(['%' . $term . '%']);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $results = array_map(function($r) {
+        $results = array_map(static function($r) {
             $price = (int)round($r['base_price'] * 1.30);
             return [
-                'item_id'         => $r['item_id'],
-                'name'            => $r['Name'],
+                'item_id'         => (string)$r['item_id'],
+                'name'            => (string)$r['Name'],
                 'level'           => (int)$r['Level'],
                 'price_formatted' => number_format($price) . 'c',
             ];
         }, $rows);
     } else {
-        // Housing search: only items currently actually listed by a
-        // player via a consignment merchant.
         $stmt = $db->prepare("
             SELECT DISTINCT it.Id_nb AS item_id, it.Name, it.Level
             FROM inventory i
@@ -208,34 +212,56 @@ if ($action === 'search') {
         ");
         $stmt->execute(['%' . $term . '%']);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($results as &$r) { $r['level'] = (int)$r['level']; $r['price_formatted'] = null; }
+        foreach ($results as &$r) {
+            $r['item_id'] = (string)$r['item_id'];
+            $r['name'] = (string)$r['Name'];
+            $r['level'] = (int)$r['Level'];
+            unset($r['Name'], $r['Level']);
+            $r['price_formatted'] = null;
+        }
+        unset($r);
     }
 
     echo json_encode(['ok' => true, 'results' => $results]);
     exit;
 }
 
-// ── item_detail: data for the popup (name, level, effect, seller + online) ──
 if ($action === 'item_detail') {
-    $itemId = trim($_POST['item_id'] ?? '');
-    $source = trim($_POST['source'] ?? 'system');
+    $itemId = trim((string)($_POST['item_id'] ?? ''));
+    $source = trim((string)($_POST['source'] ?? 'system'));
 
-    $stmt = $db->prepare("
-        SELECT it.Id_nb, it.Name, it.Level, it.Description, it.SpellID, s.Name AS SpellName, s.Description AS SpellDesc
-        FROM itemtemplate it
-        LEFT JOIN spell s ON s.SpellID = it.SpellID
-        WHERE it.Id_nb = ?
-        LIMIT 1
-    ");
-    $stmt->execute([$itemId]);
-    $item = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!itemshop_valid_source($source)) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'invalid_source']);
+        exit;
+    }
 
-    if (!$item) {
+    $catalogItem = daoc_pve_item_detail($db, $itemId);
+    if (!$catalogItem) {
         echo json_encode(['ok' => false, 'error' => t('itemshop.item_not_found', [], 'Item not found.')]);
         exit;
     }
 
-    $effect = $item['SpellDesc'] ?: ($item['Description'] ?: t('itemshop.no_effect_description', [], 'No effect description available.'));
+    $effect = $catalogItem['description'] !== ''
+        ? $catalogItem['description']
+        : t('itemshop.no_effect_description', [], 'No effect description available.');
+
+    if (daoc_game_column_exists($db, 'itemtemplate', 'SpellID') && daoc_game_table_name($db, 'spell') !== null) {
+        try {
+            $stmtSpell = $db->prepare("
+                SELECT s.Description
+                FROM itemtemplate it
+                LEFT JOIN spell s ON s.SpellID = it.SpellID
+                WHERE it.Id_nb = ?
+                LIMIT 1
+            ");
+            $stmtSpell->execute([$itemId]);
+            $spellDescription = $stmtSpell->fetchColumn();
+            if (is_string($spellDescription) && trim($spellDescription) !== '') $effect = $spellDescription;
+        } catch (Throwable $e) {
+            error_log('Item detail spell lookup failed: ' . $e->getMessage());
+        }
+    }
 
     $listings = [];
     if ($source === 'system') {
@@ -247,19 +273,13 @@ if ($action === 'item_detail') {
             $listings[] = [
                 'ref'             => 'sys_' . $itemId,
                 'seller_label'    => t('itemshop.system_vendor', [], 'System Vendor'),
-                'seller_online'   => true, // System vendor is always "online"
+                'seller_online'   => true,
                 'count'           => 1,
                 'price'           => $price,
                 'price_formatted' => number_format($price) . 'c',
             ];
         }
     } else {
-        // NOTE: seller name + online status assume that the character who
-        // owns the house/merchant can be resolved via hcm.OwnerID ->
-        // dolcharacters. If your houseconsignmentmerchant table references
-        // the owner differently, e.g. via a `house` join table, adjust the
-        // JOIN condition below (hcm.OwnerID = dc.???) accordingly -
-        // `dc.ObjectId` was assumed here as the common DOL convention.
         $stmtHc = $db->prepare("
             SELECT i.Inventory_ID AS ref, i.SellPrice, i.Count, dc.Name AS SellerName
             FROM inventory i
@@ -276,12 +296,12 @@ if ($action === 'item_detail') {
         foreach ($housing_rows as $r) {
             $sellerName = $r['SellerName'] ?: t('itemshop.housing_merchant', [], 'Housing Merchant');
             $listings[] = [
-                'ref'             => $r['ref'],
-                'seller_label'    => $sellerName,
+                'ref'             => (string)$r['ref'],
+                'seller_label'    => (string)$sellerName,
                 'seller_online'   => $r['SellerName'] ? in_array(strtolower($r['SellerName']), $online_names, true) : false,
                 'count'           => (int)$r['Count'],
                 'price'           => (int)$r['SellPrice'],
-                'price_formatted' => number_format($r['SellPrice']) . 'c',
+                'price_formatted' => number_format((int)$r['SellPrice']) . 'c',
             ];
         }
     }
@@ -289,21 +309,37 @@ if ($action === 'item_detail') {
     echo json_encode([
         'ok' => true,
         'item' => [
-            'item_id' => $item['Id_nb'],
-            'name'    => $item['Name'],
-            'level'   => (int)$item['Level'],
-            'effect'  => $effect,
+            'item_id' => $catalogItem['id'],
+            'name' => $catalogItem['name'],
+            'level' => $catalogItem['level'],
+            'quality' => $catalogItem['quality'],
+            'bonus' => $catalogItem['bonus'],
+            'type_label' => $catalogItem['type_label'],
+            'effect' => $effect,
+            'dps' => $catalogItem['dps'],
+            'speed' => $catalogItem['speed'],
+            'af' => $catalogItem['af'],
+            'abs' => $catalogItem['abs'],
+            'class_restricted' => $catalogItem['class_restricted'],
+            'excluded_classes' => $catalogItem['excluded_classes'],
+            'merchant_count' => $catalogItem['merchant_count'],
+            'detail_url' => 'index.php?p=pve_item&id=' . rawurlencode($catalogItem['id']),
         ],
         'listings' => $listings,
     ]);
     exit;
 }
 
-// ── purchase: atomic purchase via the bridge ──────────────────────
 if ($action === 'purchase') {
-    $ref    = trim($_POST['item_ref'] ?? '');
-    $source = trim($_POST['source']   ?? '');
-    $count  = max(1, (int)($_POST['count'] ?? 1));
+    $ref    = trim((string)($_POST['item_ref'] ?? ''));
+    $source = trim((string)($_POST['source'] ?? ''));
+    $count  = max(1, min(99, (int)($_POST['count'] ?? 1)));
+
+    if ($ref === '' || !itemshop_valid_source($source)) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'invalid_purchase_request']);
+        exit;
+    }
 
     $char_status = itemshop_get_chars_with_status($db, $username);
     if (!$char_status['ok']) {
@@ -311,9 +347,8 @@ if ($action === 'purchase') {
         exit;
     }
 
-    $chars = $char_status['characters'];
     $charName = null;
-    foreach ($chars as $c) {
+    foreach ($char_status['characters'] as $c) {
         if ($c['online']) { $charName = $c['Name']; break; }
     }
 

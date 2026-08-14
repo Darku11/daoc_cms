@@ -2,19 +2,17 @@
 /*
  * DAoC CMS - Guild Chat -> Discord Bridge
  *
- * Lives deliberately in the custom scripts folder (like CMSLiveEvents.cs),
- * NOT in the DOL/OpenDAoC core project (GameServer\commands\playercommands\guildchat.cs).
+ * Lives deliberately in the custom scripts folder, not in the DOL/OpenDAoC
+ * core project (GameServer\commands\playercommands\guildchat.cs).
  *
- * Reason: SendMessageToGuildMembers() in the core (Guild.cs) doesn't log
- * anything and fires no post-send DOLEvent. OpenDAoC loads script commands
- * before the built-in core commands, so this script claims /gu directly. The
- * installer below remains as a compatibility fallback for DOL builds that use
- * a different assembly order. guildchat.cs in the server core stays untouched.
+ * SendMessageToGuildMembers() in the core (Guild.cs) does not expose a
+ * post-send event suitable for this integration. OpenDAoC loads script
+ * commands before the built-in core commands, so this script claims /gu
+ * directly. The installer remains as a compatibility fallback for DOL builds
+ * that use a different assembly order. The server core stays untouched.
  *
- * TO VERIFY AFTER DEPLOYING: test /gu in-game and confirm the message still
- * arrives in guild chat as usual AND that api_events.php logs a "guild_chat"
- * event. OpenDAoC may report that its built-in &gu command was suppressed;
- * that is expected because the script command was registered first.
+ * After deployment, test /gu in-game and confirm the message still arrives in
+ * guild chat and is forwarded to the configured Discord guild channel.
  */
 using DOL.Events;
 using DOL.GS.PacketHandler;
@@ -64,7 +62,6 @@ namespace DOL.GS.Commands
             }
             catch
             {
-                // Fall through to the server console.
             }
 
             if (error)
@@ -96,7 +93,6 @@ namespace DOL.GS.Commands
             if (getCommand != null)
                 return getCommand.Invoke(null, new object[] { name }) as ScriptMgr.GameCommand;
 
-            // Compatibility fallback for older DOL builds without GetCommand.
             FieldInfo registryField = typeof(ScriptMgr).GetField(
                 "m_gameCommands", BindingFlags.NonPublic | BindingFlags.Static);
             var registry = registryField?.GetValue(null)
@@ -122,8 +118,6 @@ namespace DOL.GS.Commands
                     return;
                 }
 
-                // Respect DISABLED_COMMANDS and custom cores: do not silently
-                // enable guild chat when the server did not register /gu.
                 _guildCommand = FindCommand("&gu");
                 if (_guildCommand == null || _guildCommand.m_cmdHandler == null)
                 {
@@ -135,9 +129,6 @@ namespace DOL.GS.Commands
                 _bridgeHandler = new GuildChatBridgeCommandHandler();
                 _originalGuildHandler = _guildCommand.m_cmdHandler;
 
-                // OpenDAoC loads commands from the script assembly first. In
-                // that case the CmdAttribute below already installed this
-                // handler and there is nothing left to replace.
                 if (_originalGuildHandler is GuildChatBridgeCommandHandler installedHandler)
                 {
                     _bridgeHandler = installedHandler;
@@ -212,10 +203,6 @@ namespace DOL.GS.Commands
             return client;
         }
 
-        // DOL accepts a params object[] while current OpenDAoC exposes a
-        // dedicated two-string overload. Resolve either signature and fall
-        // back to the built-in English guild-chat messages if translation
-        // lookup is unavailable.
         private static string Text(GameClient client, string key, string fallback)
         {
             try
@@ -249,7 +236,6 @@ namespace DOL.GS.Commands
             }
             catch
             {
-                // A translation failure must never break the chat command.
             }
 
             return fallback;
@@ -284,7 +270,7 @@ namespace DOL.GS.Commands
 
                         if (responseBody.IndexOf("\"ok\":true", StringComparison.OrdinalIgnoreCase) < 0)
                         {
-                            GuildChatBridgeLog.Error("CMS rejected the guild-chat event: " + Shorten(responseBody));
+                            GuildChatBridgeLog.Error("CMS rejected the guild-chat message: " + Shorten(responseBody));
                             return;
                         }
 
@@ -307,8 +293,6 @@ namespace DOL.GS.Commands
 
         public void OnCommand(GameClient client, string[] args)
         {
-            // ── 1:1 identical to the original core logic from guildchat.cs,
-            // so nothing changes about the player experience.
             if (client?.Player == null)
                 return;
 
@@ -336,7 +320,6 @@ namespace DOL.GS.Commands
             string message = "[Guild] " + client.Player.Name + ": \"" + rawText + "\"";
             client.Player.Guild.SendMessageToGuildMembers(message, eChatType.CT_Guild, eChatLoc.CL_ChatWindow);
 
-            // ── Forward to the CMS/Discord bridge.
             GuildChatBridgeLog.Info(
                 "Captured guild chat from '" + client.Player.Name + "' in guild '" + client.Player.Guild.Name + "'.");
             SendGuildChatToCms(client.Player.Guild.Name, client.Player.Name, rawText);
