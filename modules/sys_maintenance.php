@@ -19,10 +19,22 @@ if (!isset($_POST['toggle_maint'])) {
 checkToken($_POST['csrf_token'] ?? '');
 
 $adminId = (int)($_SESSION['user_id'] ?? 0);
-$current = (($GLOBALS['cms_settings']['maintenance_mode'] ?? '0') === '1');
+$lockFile = __DIR__ . '/../maintenance.lock';
+clearstatcache(true, $lockFile);
+$current = file_exists($lockFile);
 $newState = $current ? '0' : '1';
 
 try {
+    if ($newState === '1') {
+        $lockContent = "MAINTENANCE ACTIVE\nStarted by: " . ($_SESSION['username'] ?? 'Unknown Admin')
+            . "\nID: {$adminId}\nTime: " . date('Y-m-d H:i:s');
+        if (file_put_contents($lockFile, $lockContent, LOCK_EX) === false) {
+            throw new RuntimeException('Could not create maintenance lock file.');
+        }
+    } elseif (file_exists($lockFile) && !unlink($lockFile)) {
+        throw new RuntimeException('Could not remove maintenance lock file.');
+    }
+
     $stmt = $db->prepare(
         "INSERT INTO settings (setting_key, value) VALUES ('maintenance_mode', ?)
          ON DUPLICATE KEY UPDATE value = VALUES(value)"
@@ -47,6 +59,11 @@ try {
     header('Location: ../index.php?p=maintenance_text&msg=toggled');
     exit;
 } catch (Throwable $e) {
+    if ($current && !file_exists($lockFile)) {
+        @file_put_contents($lockFile, "MAINTENANCE ACTIVE\n", LOCK_EX);
+    } elseif (!$current && file_exists($lockFile)) {
+        @unlink($lockFile);
+    }
     error_log('Maintenance Toggle Error: ' . $e->getMessage());
     http_response_code(500);
     exit('Something went wrong. Check the logs.');

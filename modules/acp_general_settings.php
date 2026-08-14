@@ -11,32 +11,58 @@ $settings = $settings ?? [];
 if (!$settings) {
     $settings = $db->query("SELECT setting_key, value FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
 }
-$is_maintenance = (($settings['maintenance_mode'] ?? '0') === '1');
+$maintenance_file = __DIR__ . '/../maintenance.lock';
+clearstatcache(true, $maintenance_file);
+$is_maintenance = file_exists($maintenance_file);
 
 $stmt_load = $db->prepare("SELECT value FROM settings WHERE setting_key = 'maintenance_text' LIMIT 1");
 $stmt_load->execute();
 $current_maint_text = (string)($stmt_load->fetchColumn() ?: 'Under Maintenance.');
 
+$gs_success = '';
+$gs_error = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_maintenance']) && $userPriv >= 5) {
     checkToken($_POST['csrf_token'] ?? '');
     $new_state = $is_maintenance ? '0' : '1';
-    $db->prepare("INSERT INTO settings (setting_key, value) VALUES ('maintenance_mode', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)")
-       ->execute([$new_state]);
-    $is_maintenance = $new_state === '1';
-    $settings['maintenance_mode'] = $new_state;
-    $GLOBALS['cms_settings']['maintenance_mode'] = $new_state;
-    aldhran_log('MAINTENANCE_TOGGLE', 'Maintenance mode set to: ' . $new_state, (int)($_SESSION['user_id'] ?? 0));
-    if (isset($GLOBALS['botDispatcher'])) {
-        try {
-            $GLOBALS['botDispatcher']->onMaintenanceToggle($is_maintenance, (int)($_SESSION['user_id'] ?? 0));
-        } catch (Throwable $e) {
-            error_log('BotDispatcher maintenance trigger failed: ' . $e->getMessage());
+    $previous_state = $is_maintenance;
+
+    try {
+        if ($new_state === '1') {
+            $lock_content = "MAINTENANCE ACTIVE\nStarted by: " . ($_SESSION['username'] ?? 'Unknown Admin')
+                . "\nID: " . (int)($_SESSION['user_id'] ?? 0)
+                . "\nTime: " . date('Y-m-d H:i:s');
+            if (file_put_contents($maintenance_file, $lock_content, LOCK_EX) === false) {
+                throw new RuntimeException('Could not create maintenance lock file.');
+            }
+        } elseif (file_exists($maintenance_file) && !unlink($maintenance_file)) {
+            throw new RuntimeException('Could not remove maintenance lock file.');
         }
+
+        $db->prepare("INSERT INTO settings (setting_key, value) VALUES ('maintenance_mode', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)")
+           ->execute([$new_state]);
+        $is_maintenance = $new_state === '1';
+        $settings['maintenance_mode'] = $new_state;
+        $GLOBALS['cms_settings']['maintenance_mode'] = $new_state;
+        aldhran_log('MAINTENANCE_TOGGLE', 'Maintenance mode set to: ' . $new_state, (int)($_SESSION['user_id'] ?? 0));
+        if (isset($GLOBALS['botDispatcher'])) {
+            try {
+                $GLOBALS['botDispatcher']->onMaintenanceToggle($is_maintenance, (int)($_SESSION['user_id'] ?? 0));
+            } catch (Throwable $e) {
+                error_log('BotDispatcher maintenance trigger failed: ' . $e->getMessage());
+            }
+        }
+    } catch (Throwable $e) {
+        if ($previous_state && !file_exists($maintenance_file)) {
+            @file_put_contents($maintenance_file, "MAINTENANCE ACTIVE\n", LOCK_EX);
+        } elseif (!$previous_state && file_exists($maintenance_file)) {
+            @unlink($maintenance_file);
+        }
+        $is_maintenance = $previous_state;
+        $gs_error = 'Could not change maintenance mode. Check filesystem permissions and logs.';
+        error_log('Maintenance Toggle Error: ' . $e->getMessage());
     }
 }
-
-$gs_success = '';
-$gs_error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     checkToken($_POST['csrf_token'] ?? '');
@@ -116,7 +142,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 
         $settings = $db->query("SELECT setting_key, value FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
         $GLOBALS['cms_settings'] = $settings;
-        $is_maintenance = (($settings['maintenance_mode'] ?? '0') === '1');
+        clearstatcache(true, $maintenance_file);
+        $is_maintenance = file_exists($maintenance_file);
+        $settings['maintenance_mode'] = $is_maintenance ? '1' : '0';
+        $GLOBALS['cms_settings']['maintenance_mode'] = $settings['maintenance_mode'];
         $current_maint_text = $updates['maintenance_text'] ?? $current_maint_text;
         aldhran_log('SETTINGS_UPDATE', 'General settings updated via ACP (tab: ' . ($_POST['active_tab'] ?? '?') . ')', (int)($_SESSION['user_id'] ?? 0));
         $gs_success = 'Settings saved successfully.';
@@ -193,7 +222,6 @@ $form_action = defined('IN_ACP') ? 'acp.php?s=general_settings' : 'index.php?p=g
 $csrf = generateToken();
 
 function gs(array $s, string $key, string $default = '1'): string { return (string)($s[$key] ?? $default); }
-$core_label = gs($settings, 'game_server_core', 'dol') === 'opendaoc' ? 'OpenDAoC' : 'Dawn of Light (DOL)';
 ?>
 <div class="gs-wrap">
     <?php if ($gs_success): ?><div class="acp-msg-success"><i class="fas fa-check-circle"></i> <?= h($gs_success) ?></div><?php endif; ?>
@@ -253,11 +281,6 @@ $core_label = gs($settings, 'game_server_core', 'dol') === 'opendaoc' ? 'OpenDAo
         </div>
 
         <div class="gs-panel <?= $active_tab === 'gameserver' ? 'active' : '' ?>" id="panel-gameserver">
-            <div class="gs-group">
-                <div class="gs-group-head"><i class="fas fa-code-branch"></i> Server Core</div>
-                <div class="gs-row"><div class="gs-row-label">Emulator<div class="gs-row-hint">Selected during setup. Changing the emulator after installation is intentionally not supported.</div></div><div class="gs-row-value"><strong><?= h($core_label) ?></strong></div></div>
-            </div>
-
             <div class="gs-group">
                 <div class="gs-group-head"><i class="fas fa-search"></i> Auto-Detection</div>
                 <div class="acp-s-f8ec4b54">

@@ -64,7 +64,22 @@ if ($currentUserId > 0) {
     $unread_count = (int)$stmt_notif->fetch()['cnt'];
 }
 
-$is_maintenance = (($GLOBALS['cms_settings']['maintenance_mode'] ?? '0') === '1');
+$maintenance_file = __DIR__ . '/maintenance.lock';
+clearstatcache(true, $maintenance_file);
+$is_maintenance = file_exists($maintenance_file);
+$maintenance_setting = $is_maintenance ? '1' : '0';
+if (($GLOBALS['cms_settings']['maintenance_mode'] ?? '0') !== $maintenance_setting) {
+    try {
+        $stmt_maintenance = $db->prepare(
+            "INSERT INTO settings (setting_key, value) VALUES ('maintenance_mode', ?)
+             ON DUPLICATE KEY UPDATE value = VALUES(value)"
+        );
+        $stmt_maintenance->execute([$maintenance_setting]);
+        $GLOBALS['cms_settings']['maintenance_mode'] = $maintenance_setting;
+    } catch (Throwable $e) {
+        error_log('Maintenance state synchronization failed: ' . $e->getMessage());
+    }
+}
 
 if ($is_maintenance && $userPriv < 5 && $page_slug !== 'login') {
     $stmt_m = $db->prepare("SELECT value FROM settings WHERE setting_key = 'maintenance_text' LIMIT 1");

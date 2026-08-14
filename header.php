@@ -1,6 +1,8 @@
 <?php
 // SPDX-License-Identifier: GPL-3.0-only
-$is_maintenance = $is_maintenance ?? (($GLOBALS['cms_settings']['maintenance_mode'] ?? '0') === '1');
+$maintenance_file = __DIR__ . '/maintenance.lock';
+clearstatcache(true, $maintenance_file);
+$is_maintenance = $is_maintenance ?? file_exists($maintenance_file);
 require_once('includes/db.php');
 
 $server_ip = (string)($GLOBALS['cms_settings']['game_server_ip'] ?? '127.0.0.1');
@@ -306,7 +308,6 @@ if (($_h_settings['has_critical_error'] ?? '0') === '0' && isset($_COOKIE['dismi
             <form action="index.php" method="GET" class="header-search-form hide-mobile">
                 <input type="hidden" name="p" value="search">
                 <input type="text" name="q" class="header-search-input" placeholder="<?= h(t('header.search_placeholder', [], 'Search...')) ?>" required>
-                <i class="fas fa-search header-search-icon"></i>
             </form>
             <?php endif; ?>
 
