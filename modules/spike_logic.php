@@ -93,7 +93,7 @@ try {
            FROM users
           WHERE standing < 5
           ORDER BY created_at DESC, id DESC
-          LIMIT 5"
+          LIMIT 1"
     );
     $recent_members = $stmt_recent_members->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) {
