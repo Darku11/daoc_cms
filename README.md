@@ -168,6 +168,10 @@ These include components such as:
 
 Source and setup instructions for these bridge components are maintained in the
 [`daoc_cms_utilities`](https://github.com/Darku11/daoc_cms_utilities) repository.
+Its complete
+[`Deployment` guide](https://github.com/Darku11/daoc_cms_utilities#deployment)
+covers the exact DOL and OpenDAoC file locations, AldhranConsole publishing, the OpenDAoC
+`Bad IL format` workaround, Discord guild-channel linking, verification and troubleshooting.
 The dedicated
 [`AldhranConsole guide`](https://github.com/Darku11/daoc_cms_utilities/tree/main/AldhranConsole)
 covers its .NET 10 requirements, shared-secret configuration, endpoints, publishing and service checks.
@@ -178,9 +182,16 @@ Live administration follows one core-neutral request chain:
 DAoC CMS -> AldhranConsole (HTTP :5100) -> AldhranBridge.cs (TCP :2000) -> DOL / OpenDAoC
 ```
 
-The installer generates one game-server integration secret. Use the same value for the CMS
-`game_server_shared_secret`, AldhranConsole's `Console:SharedSecret`, and the `BRIDGE_SECRET`
-constant in each installed game-server script.
+The installer generates one game-server integration secret and a ready-to-use
+`daoc_cms_bridge.conf`. Put the configuration file in the game server's `config/` directory and
+install `DAoCCmsBridgeConfig.cs` with the selected feature scripts in `scripts/`. AldhranBridge,
+GuildChatBridge and CMSLiveEvents all read their CMS URL, secret and TCP port from that one file;
+their C# sources do not need site-specific edits. The same secret is configured once in
+AldhranConsole as `Console:SharedSecret`.
+
+After installation, SuperAdmins can update the values and download a new configuration file under
+ACP → General Settings → Game Server. Replacing the file requires a game-server restart but no
+script rebuild.
 
 The bridges are **not required for a basic DAoC CMS installation**.
 

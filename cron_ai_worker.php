@@ -31,7 +31,7 @@ if (!file_exists($handler_path)) {
 require_once $handler_path;
 
 // Load BotSettings + BotEventDispatcher
-$settings_path    = __DIR__ . '/includes/BotSettings.php';
+$settings_path    = __DIR__ . '/includes/botsettings.php';
 $dispatcher_path  = __DIR__ . '/includes/BotEventDispatcher.php';
 $hasDispatcher    = file_exists($settings_path) && file_exists($dispatcher_path);
 if ($hasDispatcher) {

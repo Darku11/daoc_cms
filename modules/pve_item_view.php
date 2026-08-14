@@ -147,7 +147,9 @@ function itemshopLoadStatus() {
         const text = document.getElementById('itemshop-status-text');
         if (!data.ok) {
             box.style.borderColor = '#3a1a1a';
-            text.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#a55;"></i> Could not reach the game server.';
+            text.textContent = data.error
+                ? 'Could not reach the game server. (' + data.error + ')'
+                : 'Could not reach the game server.';
             return;
         }
         if (data.online_char) {

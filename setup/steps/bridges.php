@@ -17,6 +17,8 @@ $success = !empty($_SESSION['setup_console']);
 $consoleHost = (string)($_SESSION['setup_console']['host'] ?? '127.0.0.1');
 $consolePort = (int)($_SESSION['setup_console']['port'] ?? 5100);
 $bridgePort = (int)($_SESSION['setup_console']['bridge_port'] ?? 2000);
+$defaultCmsApiUrl = rtrim((string)($_SESSION['setup_config']['base_url'] ?? ''), '/') . '/api_events.php';
+$cmsApiUrl = (string)($_SESSION['setup_console']['cms_api_url'] ?? $defaultCmsApiUrl);
 $sharedSecret = (string)(
     $_SESSION['setup_config']['asp_key']
     ?? $_SESSION['setup_crypto']['asp_key']
@@ -30,14 +32,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_bridge_config'])
         $consoleHost = trim((string)($_POST['console_host'] ?? ''));
         $consolePort = (int)($_POST['console_port'] ?? 5100);
         $bridgePort = (int)($_POST['bridge_port'] ?? 2000);
+        $cmsApiUrl = trim((string)($_POST['cms_api_url'] ?? ''));
 
         $validHost = $consoleHost !== ''
             && !preg_match('/[\s\/?#]/', $consoleHost)
             && (filter_var(trim($consoleHost, '[]'), FILTER_VALIDATE_IP) !== false
                 || preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i', $consoleHost));
 
+        $cmsApiScheme = strtolower((string)parse_url($cmsApiUrl, PHP_URL_SCHEME));
+        $validCmsApiUrl = !preg_match('/[\r\n]/', $cmsApiUrl)
+            && filter_var($cmsApiUrl, FILTER_VALIDATE_URL) !== false
+            && in_array($cmsApiScheme, ['http', 'https'], true);
+
         if (!$validHost) {
             $error = 'Enter a valid AldhranConsole host name or IP address without http:// or a path.';
+        } elseif (!$validCmsApiUrl) {
+            $error = 'Enter an absolute HTTP or HTTPS URL for the CMS event API.';
         } elseif ($consolePort < 1 || $consolePort > 65535 || $bridgePort < 1 || $bridgePort > 65535) {
             $error = 'Console and bridge ports must be between 1 and 65535.';
         } else {
@@ -45,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_bridge_config'])
                 'host' => $consoleHost,
                 'port' => $consolePort,
                 'bridge_port' => $bridgePort,
+                'cms_api_url' => $cmsApiUrl,
             ];
             $success = true;
         }
@@ -52,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_bridge_config'])
 }
 
 $downloads = [
+    'DAoCCmsBridgeConfig.cs' => 'Required shared configuration reader. All three bridge scripts obtain their URL, secret and TCP port through this file.',
     'AldhranBridge.cs'  => 'The console bridge — status, kick, teleport, item delivery, guild chat relay, restart and more. This is what actually talks to your running game world.',
     'CMSLiveEvents.cs'  => 'Pushes PvP kill and keep-capture events from the game to your site\'s live event feed.',
     'GuildChatBridge.cs'=> 'Relays in-game guild chat to Discord by re-registering the &gu command in the scripts folder.',
@@ -66,7 +78,7 @@ $downloads = [
     'the CMS database. It needs its own connective tissue between the site and the server.',
     'This step is entirely optional — skip it if you only want the website and forum. Come back ' .
     'whenever you decide to wire up the console, the itemshop, or live event announcements.',
-    'Three pieces, three different jobs. You only need the ones behind the features you actually use.',
+    'The three feature scripts share one configuration reader and one generated configuration file. No URL, secret or port needs to be edited in C#.',
 ]); ?>
 
 <p class="act-slug" style="margin-bottom: 14px;">How a request actually travels</p>
@@ -86,11 +98,19 @@ $downloads = [
     <li class="manifest-item">
         <span class="m-num">01</span>
         <span class="m-body">
-            <b>DOL / OpenDAoC <code class="inline-code">scripts/</code> folder — drop in, no build required.</b>
-            <code class="inline-code">AldhranBridge.cs</code>, <code class="inline-code">CMSLiveEvents.cs</code>,
-            and <code class="inline-code">GuildChatBridge.cs</code> all belong here and work unchanged on
-            either core. Both compile this folder themselves when the server starts — restart the server
-            after adding or changing a file, no separate build step.
+            <b>DOL / OpenDAoC <code class="inline-code">scripts/</code> folder.</b>
+            <code class="inline-code">DAoCCmsBridgeConfig.cs</code>, <code class="inline-code">AldhranBridge.cs</code>,
+            <code class="inline-code">CMSLiveEvents.cs</code>, and <code class="inline-code">GuildChatBridge.cs</code>
+            all belong here and work unchanged on
+            either core. DOL normally compiles them when the server starts. OpenDAoC builds affected by the
+            <code class="inline-code">Bad IL format</code> compiler failure can use
+            <code class="inline-code">tools/Build-OpenDAoCScriptAssembly.ps1</code> from the utilities repository.
+            The builder targets the exact installed release and writes OpenDAoC's script-cache metadata, so
+            <code class="inline-code">EnableCompilation=True</code> can remain set while the scripts are unchanged.
+            Run the builder again after every script change, then restart the server.
+            Put the generated <code class="inline-code">daoc_cms_bridge.conf</code> in the game server's
+            <code class="inline-code">config/</code> folder. Configuration changes only require replacing
+            that file and restarting the server; the C# sources do not need to be edited.
         </span>
     </li>
     <li class="manifest-item">
@@ -101,7 +121,7 @@ $downloads = [
             as your game server or somewhere else entirely, as long as it can reach your DOL or OpenDAoC
             server on port 2000 and your site can reach it on port 5100. Set <code class="inline-code">Console:SharedSecret</code>
             in its <code class="inline-code">appsettings.json</code> to the integration secret shown below,
-            and use that same value in <code class="inline-code">AldhranBridge.cs</code>. Build, publish and
+            and set its bridge port to the same value as the generated game-server configuration. Build, publish and
             service instructions are in the
             <a href="https://github.com/Darku11/daoc_cms_utilities/tree/main/AldhranConsole" target="_blank" rel="noopener noreferrer">AldhranConsole guide</a>.
         </span>
@@ -123,7 +143,7 @@ $downloads = [
     <dt>AldhranConsole (HTTP)</dt>
     <dd>Port 5100 by default. The shared secret is stored in ACP → General Settings → Bridge Connection and mirrored in AldhranConsole's own config.</dd>
     <dt>AldhranBridge.cs (TCP)</dt>
-    <dd>Port 2000 by default. Use the same shared secret as the <code class="inline-code">BRIDGE_SECRET</code> value in the .cs file below.</dd>
+    <dd>Port 2000 by default. The port and secret come from <code class="inline-code">config/daoc_cms_bridge.conf</code>.</dd>
     <dt>Discord bot socket</dt>
     <dd>Port 15000 by default. Unrelated to the two above — configured separately under ACP → Bot Settings. Covered when you set up the bot, not here.</dd>
 </dl>
@@ -160,6 +180,16 @@ $downloads = [
     </div>
 
     <div class="field">
+        <label class="form-label" for="cms_api_url">CMS event API URL</label>
+        <input type="url" class="form-control" id="cms_api_url" name="cms_api_url"
+               value="<?= htmlspecialchars($cmsApiUrl) ?>" required autocomplete="off">
+        <span class="field-hint">
+            Usually your public CMS URL followed by <code class="inline-code">/api_events.php</code>.
+            The game server must be able to reach it.
+        </span>
+    </div>
+
+    <div class="field">
         <label class="form-label" for="bridge_shared_secret">Shared secret</label>
         <div class="secret">
             <input type="text" class="form-control" id="bridge_shared_secret"
@@ -167,9 +197,9 @@ $downloads = [
             <button type="button" class="cmd-copy" data-copy-target="bridge_shared_secret">Copy</button>
         </div>
         <span class="field-hint">
-            Generated in the previous step. Use this exact value for
-            <code class="inline-code">Console:SharedSecret</code> and every
-            <code class="inline-code">BRIDGE_SECRET</code> constant.
+            Generated in the previous step. The configuration download below writes it once for every
+            game-server script. Use the same value for <code class="inline-code">Console:SharedSecret</code>
+            in AldhranConsole.
         </span>
     </div>
 
@@ -185,10 +215,29 @@ $downloads = [
 
 <p class="act-slug" style="margin: 34px 0 14px;">Downloads</p>
 
+<?php if ($success): ?>
+    <div class="alert alert-success mb-4">
+        <strong>1. Download the configured bridge file.</strong><br>
+        Save it as <code class="inline-code">config/daoc_cms_bridge.conf</code> below your DOL/OpenDAoC
+        server root. It supplies the same URL, secret and TCP port to all three feature scripts.
+        Restrict read access to the game-server account because the file contains the shared secret.
+        <div class="mt-3">
+            <a href="download_bridge_config.php?csrf_token=<?= rawurlencode($security->generateToken()) ?>"
+               class="btn btn-gold" download>
+                <i class="fas fa-download me-2"></i> Download daoc_cms_bridge.conf
+            </a>
+        </div>
+    </div>
+<?php else: ?>
+    <div class="alert alert-warning mb-4">
+        Save the connection values first. The setup will then generate the configured bridge file for you.
+    </div>
+<?php endif; ?>
+
 <p class="probe-note" style="margin-bottom: 16px;">
-    Every secret and URL inside the downloadable source files is a placeholder —
-    <code class="inline-code">CHANGE_ME_BRIDGE_SECRET</code> and <code class="inline-code">YOUR-SITE.example</code>.
-    Edit them before the game server compiles the scripts, using the shared secret shown above.
+    <strong>2. Download the scripts.</strong> Put the shared configuration reader and the feature scripts you
+    need in the game server's <code class="inline-code">scripts/</code> folder. The source files contain no
+    site-specific URL, secret or port and do not need to be edited.
 </p>
 
 <ul class="probes">

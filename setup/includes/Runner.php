@@ -400,6 +400,10 @@ class Runner
             'timezone'           => $s['cms']['timezone'],
             'game_server_core'   => $s['game']['core'],
             'game_server_bridge_port' => (string)($s['console']['bridge_port'] ?? 2000),
+            'game_server_cms_api_url' => (string)(
+                $s['console']['cms_api_url']
+                ?? (rtrim((string)$s['cms']['base_url'], '/') . '/api_events.php')
+            ),
             'game_server_console_host' => (string)($s['console']['host'] ?? '127.0.0.1'),
             'game_server_console_port' => (string)($s['console']['port'] ?? 5100),
             'game_server_shared_secret' => $s['cms']['asp_key'] ?? $s['crypto']['asp_key'],

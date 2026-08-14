@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 define('IN_CMS', true);
 require_once __DIR__ . '/includes/db.php';
-require_once __DIR__ . '/includes/BotSettings.php';
+require_once __DIR__ . '/includes/botsettings.php';
 require_once __DIR__ . '/includes/BotEventDispatcher.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

@@ -19,21 +19,34 @@ if (!$itemshop_enabled) {
     exit;
 }
 
-/**
- * Returns the list of currently online player names (lowercase) from
- * the bridge. Fetched once per request and reused both for "are my own
- * characters online?" and "is the seller online?" instead of querying
- * the bridge multiple times.
- */
-function itemshop_get_online_names(): array {
-    $status = aldhran_console_call('status', [], 'GET');
-    $online_names = [];
-    if ($status['ok'] ?? false) {
-        foreach ($status['players'] ?? [] as $p) {
-            $online_names[] = strtolower($p['Name']);
-        }
+/** Resolve only the requested character names through the core-neutral bridge. */
+function itemshop_get_online_names(array $character_names): array {
+    $requested = [];
+    foreach ($character_names as $name) {
+        $name = trim((string)$name);
+        if ($name !== '') $requested[strtolower($name)] = $name;
     }
-    return $online_names;
+
+    if (!$requested) return ['ok' => true, 'names' => []];
+
+    $presence = aldhran_console_call('players/online', [
+        'names' => array_values($requested),
+    ]);
+
+    if (!($presence['ok'] ?? false)) {
+        return [
+            'ok'    => false,
+            'names' => [],
+            'error' => $presence['error'] ?? t('itemshop.server_unreachable', [], 'The game server could not be reached.'),
+        ];
+    }
+
+    $online_names = [];
+    foreach ($presence['online'] ?? [] as $name) {
+        if (is_string($name) && $name !== '') $online_names[] = strtolower($name);
+    }
+
+    return ['ok' => true, 'names' => array_values(array_unique($online_names))];
 }
 
 /**
@@ -42,17 +55,24 @@ function itemshop_get_online_names(): array {
  * about which character is "their own" — always resolve it via the
  * account->char link (AccountName = users.username).
  */
-function itemshop_get_chars_with_status(PDO $db, string $accountName, ?array $online_names = null): array {
+function itemshop_get_chars_with_status(PDO $db, string $accountName): array {
     $stmt = $db->prepare("SELECT Name, Realm, Level, Class FROM dolcharacters WHERE AccountName = ? ORDER BY Level DESC");
     $stmt->execute([$accountName]);
     $chars = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $online_names = $online_names ?? itemshop_get_online_names();
+    $presence = itemshop_get_online_names(array_column($chars, 'Name'));
+    $online_names = $presence['names'];
 
     foreach ($chars as &$c) {
         $c['online'] = in_array(strtolower($c['Name']), $online_names, true);
     }
-    return $chars;
+    unset($c);
+
+    return [
+        'ok'         => $presence['ok'],
+        'error'      => $presence['error'] ?? null,
+        'characters' => $chars,
+    ];
 }
 
 $action = $_POST['action'] ?? '';
@@ -62,7 +82,17 @@ $username = $_SESSION['username'] ?? '';
 
 // ── status: character list + online status (all own chars, not just one) ──
 if ($action === 'status') {
-    $chars = itemshop_get_chars_with_status($db, $username);
+    $char_status = itemshop_get_chars_with_status($db, $username);
+    if (!$char_status['ok']) {
+        echo json_encode([
+            'ok'         => false,
+            'error'      => $char_status['error'],
+            'characters' => $char_status['characters'],
+        ]);
+        exit;
+    }
+
+    $chars = $char_status['characters'];
     $online_chars = array_values(array_filter($chars, fn($c) => $c['online']));
     echo json_encode([
         'ok'            => true,
@@ -230,8 +260,6 @@ if ($action === 'item_detail') {
         // the owner differently, e.g. via a `house` join table, adjust the
         // JOIN condition below (hcm.OwnerID = dc.???) accordingly -
         // `dc.ObjectId` was assumed here as the common DOL convention.
-        $online_names = itemshop_get_online_names();
-
         $stmtHc = $db->prepare("
             SELECT i.Inventory_ID AS ref, i.SellPrice, i.Count, dc.Name AS SellerName
             FROM inventory i
@@ -241,7 +269,11 @@ if ($action === 'item_detail') {
             ORDER BY i.SellPrice ASC
         ");
         $stmtHc->execute([$itemId]);
-        foreach ($stmtHc->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $housing_rows = $stmtHc->fetchAll(PDO::FETCH_ASSOC);
+        $presence = itemshop_get_online_names(array_column($housing_rows, 'SellerName'));
+        $online_names = $presence['names'];
+
+        foreach ($housing_rows as $r) {
             $sellerName = $r['SellerName'] ?: t('itemshop.housing_merchant', [], 'Housing Merchant');
             $listings[] = [
                 'ref'             => $r['ref'],
@@ -273,7 +305,13 @@ if ($action === 'purchase') {
     $source = trim($_POST['source']   ?? '');
     $count  = max(1, (int)($_POST['count'] ?? 1));
 
-    $chars = itemshop_get_chars_with_status($db, $username);
+    $char_status = itemshop_get_chars_with_status($db, $username);
+    if (!$char_status['ok']) {
+        echo json_encode(['ok' => false, 'error' => $char_status['error']]);
+        exit;
+    }
+
+    $chars = $char_status['characters'];
     $charName = null;
     foreach ($chars as $c) {
         if ($c['online']) { $charName = $c['Name']; break; }

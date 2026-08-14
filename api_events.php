@@ -4,6 +4,13 @@ require_once('includes/db.php');
 
 header('Content-Type: application/json');
 
+function api_events_reply(array $payload, int $status = 200): void
+{
+    http_response_code($status);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $secret = $_POST['secret'] ?? '';
     $expectedSecret = trim((string)($GLOBALS['cms_settings']['game_server_shared_secret'] ?? ''));
@@ -30,55 +37,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($type === 'guild_chat') {
-        $guildName = $_POST['guild'] ?? '';
-        $playerName = $_POST['player'] ?? '';
+        $guildName = trim(substr((string)($_POST['guild'] ?? ''), 0, 255));
+        $playerName = trim(substr((string)($_POST['player'] ?? ''), 0, 255));
 
-        $stmt = $db->query("SELECT guild_chat_sync FROM cms_bot_settings WHERE id = 1");
-        $syncActive = (int)$stmt->fetchColumn();
+        try {
+            $stmt = $db->query("SELECT guild_chat_sync FROM cms_bot_settings WHERE id = 1");
+            if ((int)$stmt->fetchColumn() !== 1) {
+                api_events_reply(['ok' => false, 'error' => 'Guild chat sync is disabled.'], 409);
+            }
 
-        if ($syncActive === 1 && !empty($playerName)) {
+            if ($playerName === '') {
+                api_events_reply(['ok' => false, 'error' => 'Player name is missing.'], 400);
+            }
+
+            $guildTable = daoc_game_table_sql($db, 'guild');
+            $characterTable = daoc_game_table_sql($db, 'dolcharacters');
             $channelId = null;
 
-            if ($guildName === 'LookupViaCMS') {
+            if ($guildName === '' || $guildName === 'LookupViaCMS') {
                 $stmt = $db->prepare("
-                    SELECT g.GuildName, g.discord_channel_id 
-                    FROM dolcharacters c 
-                    JOIN guild g ON c.GuildID = g.GuildID 
-                    WHERE c.Name = ? 
+                    SELECT g.GuildName, g.discord_channel_id
+                    FROM {$characterTable} c
+                    JOIN {$guildTable} g ON c.GuildID = g.GuildID
+                    WHERE c.Name = ?
                     LIMIT 1
                 ");
                 $stmt->execute([$playerName]);
-                $guildData = $stmt->fetch();
+                $guildData = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                if ($guildData) {
-                    $guildName = $guildData['GuildName'];
-                    $channelId = $guildData['discord_channel_id'];
+                if (!$guildData) {
+                    api_events_reply(['ok' => false, 'error' => 'No guild membership was found for this player.'], 404);
                 }
+
+                $guildName = (string)$guildData['GuildName'];
+                $channelId = $guildData['discord_channel_id'];
             } else {
-                $stmt = $db->prepare("SELECT discord_channel_id FROM guild WHERE GuildName = ? LIMIT 1");
+                $stmt = $db->prepare("SELECT discord_channel_id FROM {$guildTable} WHERE GuildName = ? LIMIT 1");
                 $stmt->execute([$guildName]);
                 $channelId = $stmt->fetchColumn();
             }
 
-            if (!empty($channelId)) {
-                require_once __DIR__ . '/includes/BotSettings.php';
-                require_once __DIR__ . '/includes/BotEventDispatcher.php';
-                
-                $botSettings = new BotSettings($db);
-
-                $dispatcher = new BotEventDispatcher($db, $botSettings);
-
-                $dispatcher->dispatch('guild_chat_outbound', [
-                    'channel_id' => $channelId,
-                    'guild'      => $guildName,
-                    'player'     => $playerName,
-                    'message'    => $message
-                ]);
+            if (empty($channelId)) {
+                api_events_reply(['ok' => false, 'error' => 'The in-game guild has no linked Discord channel.'], 404);
             }
+
+            require_once __DIR__ . '/includes/botsettings.php';
+            require_once __DIR__ . '/includes/BotEventDispatcher.php';
+
+            $botSettings = new BotSettings($db);
+            $dispatcher = new BotEventDispatcher($db, $botSettings);
+            $delivery = $dispatcher->dispatch('guild_chat_outbound', [
+                'channel_id' => (string)$channelId,
+                'guild'      => $guildName,
+                'player'     => $playerName,
+                'message'    => $message,
+            ]);
+
+            if (($delivery['status'] ?? '') !== 'ok') {
+                $reason = (string)($delivery['message'] ?? $delivery['reason'] ?? 'Discord delivery failed.');
+                api_events_reply(['ok' => false, 'error' => $reason], 502);
+            }
+
+            api_events_reply([
+                'ok' => true,
+                'guild' => $guildName,
+                'channel_id' => (string)$channelId,
+            ]);
+        } catch (Throwable $e) {
+            error_log('Guild chat event delivery failed: ' . $e->getMessage());
+            api_events_reply(['ok' => false, 'error' => 'Guild chat delivery failed.'], 500);
         }
-        
-        echo json_encode(['ok' => true]);
-        exit;
     }
 
     $stmt = $db->prepare("INSERT INTO cms_live_events (event_type, message) VALUES (?, ?)");

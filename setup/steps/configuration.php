@@ -270,8 +270,8 @@ ksort($zonesByRegion);
                 <button type="button" class="cmd-copy" data-copy-target="asp_key">Copy</button>
             </div>
             <span class="field-hint">
-                Shared secret between the CMS, AldhranConsole and the game server scripts. The Bridges
-                step shows exactly where this same value must be copied.
+                Shared secret between the CMS, AldhranConsole and the game server. The Bridges step generates
+                the ready-to-use game-server configuration file; no C# source needs to be edited.
             </span>
         </div>
 

@@ -75,12 +75,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             }
         }
 
+        if (isset($_POST['game_server_cms_api_url'])) {
+            $cms_api_url = trim((string)$_POST['game_server_cms_api_url']);
+            $cms_api_scheme = strtolower((string)parse_url($cms_api_url, PHP_URL_SCHEME));
+            if (!preg_match('/[\r\n]/', $cms_api_url)
+                && filter_var($cms_api_url, FILTER_VALIDATE_URL) !== false
+                && in_array($cms_api_scheme, ['http', 'https'], true)) {
+                $updates['game_server_cms_api_url'] = $cms_api_url;
+            } else {
+                $gs_error = 'The CMS event API must be an absolute HTTP or HTTPS URL.';
+            }
+        }
+
         $gs_fields = ['game_server_ip', 'game_server_port', 'game_server_bridge_port', 'game_server_shared_secret', 'game_server_bat_path', 'game_server_console_host', 'game_server_console_port'];
         foreach ($gs_fields as $field) {
             if (isset($_POST[$field])) {
                 $val = trim($_POST[$field]);
                 if ($field === 'game_server_shared_secret' && $val === '') {
                     continue;
+                }
+                if ($field === 'game_server_bridge_port') {
+                    $validated_port = filter_var($val, FILTER_VALIDATE_INT, [
+                        'options' => ['min_range' => 1, 'max_range' => 65535],
+                    ]);
+                    if ($validated_port === false) {
+                        $gs_error = 'The bridge port must be between 1 and 65535.';
+                        continue;
+                    }
+                    $val = (string)$validated_port;
                 }
                 $updates[$field] = $val;
             }
@@ -95,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     $settings = $db->query("SELECT setting_key, value FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
     $GLOBALS['cms_settings'] = $settings;
     aldhran_log("SETTINGS_UPDATE", "General settings updated via ACP (tab: " . ($_POST['active_tab'] ?? '?') . ")", $_SESSION['user_id']);
-    $gs_success = "Settings saved successfully.";
+    $gs_success = $gs_error === '' ? "Settings saved successfully." : '';
     $current_maint_text = $updates['maintenance_text'] ?? $current_maint_text;
 }
 
@@ -115,6 +137,9 @@ foreach (['game_server_shared_secret', 'game_server_bridge_secret', 'game_server
         break;
     }
 }
+$game_server_default_cms_api_url = defined('SITE_URL')
+    ? rtrim((string)SITE_URL, '/') . '/api_events.php'
+    : '';
 
 // ── Game Server: Auto-Detection ───────────────────────────────
 
@@ -425,11 +450,37 @@ function gs($s, $key, $default = '1') {
                 </div>
                 <div class="gs-row">
                     <div class="gs-row-label">Bridge Port<div class="gs-row-hint">AldhranBridge TCP port (default: 2000).</div></div>
-                    <div><input type="number" name="game_server_bridge_port" class="gs-input" value="<?= h(gs($settings,'game_server_bridge_port','2000')) ?>" placeholder="2000"></div>
+                    <div><input type="number" name="game_server_bridge_port" class="gs-input" value="<?= h(gs($settings,'game_server_bridge_port','2000')) ?>" placeholder="2000" min="1" max="65535" required></div>
                 </div>
                 <div class="gs-row">
-                    <div class="gs-row-label">Shared Secret<div class="gs-row-hint">Must match SharedSecret in AldhranConsole and BRIDGE_SECRET in the game server scripts.</div></div>
+                    <div class="gs-row-label">CMS Event API<div class="gs-row-hint">Public endpoint used by guild chat and live game events.</div></div>
+                    <div><input type="url" name="game_server_cms_api_url" class="gs-input gs-input--wide" value="<?= h(gs($settings,'game_server_cms_api_url',$game_server_default_cms_api_url)) ?>" placeholder="https://example.com/api_events.php" required></div>
+                </div>
+                <div class="gs-row">
+                    <div class="gs-row-label">Shared Secret<div class="gs-row-hint">Used by the CMS, AldhranConsole and the generated game-server configuration.</div></div>
                     <div><input type="password" name="game_server_shared_secret" class="gs-input" value="" placeholder="<?= $game_server_shared_secret_is_set ? t('acp_secret_is_set', [], 'Secret is set (leave empty to keep)') : '' ?>"></div>
+                </div>
+                <div class="gs-row">
+                    <div class="gs-row-label">Game-server configuration
+                        <div class="gs-row-hint">
+                            Generates one file for AldhranBridge, GuildChatBridge and CMSLiveEvents.
+                            Save changes before downloading, then place it at <code>config/daoc_cms_bridge.conf</code>
+                            below the game-server root and restart the server. Restrict file access to the game-server account.
+                        </div>
+                    </div>
+                    <div>
+                        <?php if ($userPriv >= 5 && $game_server_shared_secret_is_set): ?>
+                            <a class="gs-btn-rescan"
+                               href="acp.php?s=general_settings&amp;download_bridge_config=1&amp;csrf_token=<?= h($csrf) ?>"
+                               download>
+                                <i class="fas fa-download"></i> Download bridge config
+                            </a>
+                        <?php elseif ($userPriv >= 5): ?>
+                            <span class="gs-row-hint">Save a shared secret first.</span>
+                        <?php else: ?>
+                            <span class="gs-row-hint">A SuperAdmin can download the file because it contains the shared secret.</span>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 

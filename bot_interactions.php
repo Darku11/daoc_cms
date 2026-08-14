@@ -115,7 +115,7 @@ if ($type === 1) {
 }
 
 if ($type === 2) {
-    require_once __DIR__ . '/includes/BotSettings.php';
+    require_once __DIR__ . '/includes/botsettings.php';
     require_once __DIR__ . '/includes/AiManager.php';
     require_once __DIR__ . '/includes/BotEventDispatcher.php';
 

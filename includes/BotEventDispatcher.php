@@ -543,7 +543,16 @@ class BotEventDispatcher {
             return ['status' => 'error', 'message' => 'channel_id or message missing'];
         }
 
-        $stmt = $this->db->prepare("SELECT GuildName FROM guild WHERE discord_channel_id = ? LIMIT 1");
+        if (empty($this->botSettings->data['guild_chat_sync'])) {
+            return ['status' => 'error', 'message' => 'Guild chat sync is disabled'];
+        }
+
+        if (!$this->botSettings->isActive()) {
+            return ['status' => 'error', 'message' => 'Discord bot is disabled'];
+        }
+
+        $guildTable = daoc_game_table_sql($this->db, 'guild');
+        $stmt = $this->db->prepare("SELECT GuildName FROM {$guildTable} WHERE discord_channel_id = ? LIMIT 1");
         $stmt->execute([$channelId]);
         $guildName = $stmt->fetchColumn();
 
@@ -562,12 +571,21 @@ class BotEventDispatcher {
                 return [
                     'status' => 'error',
                     'message' => (string)($response['error'] ?? 'Game server bridge error'),
+                    'game_server_response' => $response,
+                ];
+            }
+
+            if (array_key_exists('recipients', $response) && (int)$response['recipients'] === 0) {
+                return [
+                    'status' => 'error',
+                    'message' => 'No online members of the linked guild were found by the game server',
+                    'game_server_response' => $response,
                 ];
             }
 
             return [
                 'status' => 'ok',
-                'result' => 'Sent to ingame',
+                'result' => 'Sent to in-game guild chat',
                 'game_server_response' => $response,
             ];
         } catch (\Throwable $e) {
@@ -583,12 +601,14 @@ class BotEventDispatcher {
         if (!$discord_id) return ['status' => 'error', 'message' => 'No discord ID'];
 
         try {
+            $guildTable = daoc_game_table_sql($this->db, 'guild');
+            $characterTable = daoc_game_table_sql($this->db, 'dolcharacters');
             if ($guildname !== '') {
                 $stmt = $this->db->prepare("
                     SELECT g.GuildID, g.GuildName, g.discord_channel_id 
                     FROM users u 
-                    JOIN dolcharacters c ON u.username = c.AccountName 
-                    JOIN guild g ON c.GuildID = g.GuildID 
+                    JOIN {$characterTable} c ON u.username = c.AccountName
+                    JOIN {$guildTable} g ON c.GuildID = g.GuildID
                     WHERE u.discord_id = ? AND g.GuildName = ?
                     ORDER BY c.LastPlayed DESC 
                     LIMIT 1
@@ -598,8 +618,8 @@ class BotEventDispatcher {
                 $stmt = $this->db->prepare("
                     SELECT g.GuildID, g.GuildName, g.discord_channel_id 
                     FROM users u 
-                    JOIN dolcharacters c ON u.username = c.AccountName 
-                    JOIN guild g ON c.GuildID = g.GuildID 
+                    JOIN {$characterTable} c ON u.username = c.AccountName
+                    JOIN {$guildTable} g ON c.GuildID = g.GuildID
                     WHERE u.discord_id = ?
                     ORDER BY c.LastPlayed DESC 
                     LIMIT 1
@@ -629,7 +649,8 @@ class BotEventDispatcher {
         }
 
         try {
-            $upd = $this->db->prepare("UPDATE guild SET discord_channel_id = ? WHERE GuildID = ?");
+            $guildTable = daoc_game_table_sql($this->db, 'guild');
+            $upd = $this->db->prepare("UPDATE {$guildTable} SET discord_channel_id = ? WHERE GuildID = ?");
             $upd->execute([$res['channel_id'], $guild['GuildID']]);
         } catch (\Throwable $e) {
             return ['status' => 'error', 'message' => "Channel <#{$res['channel_id']}> was created but could not be linked in the DAoC CMS."];

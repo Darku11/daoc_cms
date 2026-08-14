@@ -31,7 +31,7 @@ if (isset($_GET['s']) && $_GET['s'] === 'ability_editor' && isset($_GET['ajax'])
 if (isset($_GET['s']) && $_GET['s'] === 'bot_settings' && isset($_GET['ping_bot'])) {
     acp_check_ajax_auth(4);
     header('Content-Type: application/json');
-    require_once __DIR__ . '/includes/BotSettings.php';
+    require_once __DIR__ . '/includes/botsettings.php';
     $botSettings = new BotSettings($db);
     $result = $botSettings->sendCommand('ping');
     echo json_encode($result); exit;
@@ -47,6 +47,51 @@ if (isset($_GET['s']) && $_GET['s'] === 'ingame_console' && isset($_GET['ajax'])
     $userPriv = (int)($_SESSION['priv_level'] ?? 0);
     $acp_username = h($_SESSION['username'] ?? 'Admin');
     include('modules/acp_ingame_console_logic.php'); exit;
+}
+// ── Game-server bridge configuration download ─────────────────
+if (isset($_GET['s']) && $_GET['s'] === 'general_settings' && isset($_GET['download_bridge_config'])) {
+    acp_check_ajax_auth(5);
+    $bridgeConfigCsrf = isset($_GET['csrf_token']) && is_string($_GET['csrf_token'])
+        ? $_GET['csrf_token']
+        : '';
+    checkToken($bridgeConfigCsrf);
+    require_once __DIR__ . '/includes/bridge_config_file.php';
+
+    $bridgeSettings = $db->query(
+        "SELECT setting_key, value FROM settings
+          WHERE setting_key IN (
+              'game_server_cms_api_url',
+              'game_server_bridge_port',
+              'game_server_shared_secret',
+              'game_server_bridge_secret',
+              'game_server_console_secret',
+              'igc_api_secret'
+          )"
+    )->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $defaultApiUrl = defined('SITE_URL')
+        ? rtrim((string)SITE_URL, '/') . '/api_events.php'
+        : '';
+    $cmsApiUrl = trim((string)($bridgeSettings['game_server_cms_api_url'] ?? $defaultApiUrl));
+    $sharedSecret = daoc_bridge_config_secret($bridgeSettings);
+    $bridgePort = (int)($bridgeSettings['game_server_bridge_port'] ?? 2000);
+
+    try {
+        $content = daoc_bridge_config_content($cmsApiUrl, $sharedSecret, $bridgePort);
+    } catch (InvalidArgumentException $e) {
+        http_response_code(400);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo $e->getMessage();
+        exit;
+    }
+
+    header('Content-Type: text/plain; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="daoc_cms_bridge.conf"');
+    header('Content-Length: ' . strlen($content));
+    header('Cache-Control: no-store, private');
+    header('X-Content-Type-Options: nosniff');
+    echo $content;
+    exit;
 }
 // ── Watchdog.bat Download ─────────────────────────────────────
 if (isset($_GET['s']) && $_GET['s'] === 'general_settings' && isset($_GET['download_watchdog'])) {

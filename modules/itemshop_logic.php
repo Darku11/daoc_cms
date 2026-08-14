@@ -19,23 +19,53 @@ if (!$itemshop_enabled) {
     exit;
 }
 
+function itemshop_get_online_names(array $character_names): array {
+    $requested = [];
+    foreach ($character_names as $name) {
+        $name = trim((string)$name);
+        if ($name !== '') $requested[strtolower($name)] = $name;
+    }
+
+    if (!$requested) return ['ok' => true, 'names' => []];
+
+    $presence = aldhran_console_call('players/online', [
+        'names' => array_values($requested),
+    ]);
+
+    if (!($presence['ok'] ?? false)) {
+        return [
+            'ok'    => false,
+            'names' => [],
+            'error' => $presence['error'] ?? 'The game server could not be reached.',
+        ];
+    }
+
+    $online_names = [];
+    foreach ($presence['online'] ?? [] as $name) {
+        if (is_string($name) && $name !== '') $online_names[] = strtolower($name);
+    }
+
+    return ['ok' => true, 'names' => array_values(array_unique($online_names))];
+}
+
 function itemshop_get_chars_with_status(PDO $db, string $accountName): array {
     $stmt = $db->prepare("SELECT Name, Realm, Level, Class FROM dolcharacters WHERE AccountName = ? ORDER BY Level DESC");
     $stmt->execute([$accountName]);
     $chars = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $status       = aldhran_console_call('status', [], 'GET');
-    $online_names = [];
-    if ($status['ok'] ?? false) {
-        foreach ($status['players'] ?? [] as $p) {
-            $online_names[] = strtolower($p['Name']);
-        }
-    }
+    $presence = itemshop_get_online_names(array_column($chars, 'Name'));
+    $online_names = $presence['names'];
 
     foreach ($chars as &$c) {
         $c['online'] = in_array(strtolower($c['Name']), $online_names, true);
     }
-    return $chars;
+    unset($c);
+
+    return [
+        'ok'         => $presence['ok'],
+        'error'      => $presence['error'] ?? null,
+        'characters' => $chars,
+    ];
 }
 
 $action = $_POST['action'] ?? '';
@@ -44,7 +74,17 @@ checkToken($_POST['csrf_token'] ?? '');
 $username = $_SESSION['username'] ?? '';
 
 if ($action === 'status') {
-    $chars = itemshop_get_chars_with_status($db, $username);
+    $char_status = itemshop_get_chars_with_status($db, $username);
+    if (!$char_status['ok']) {
+        echo json_encode([
+            'ok'         => false,
+            'error'      => $char_status['error'],
+            'characters' => $char_status['characters'],
+        ]);
+        exit;
+    }
+
+    $chars = $char_status['characters'];
     $online_char = null;
     foreach ($chars as $c) {
         if ($c['online']) { $online_char = $c; break; }
@@ -233,7 +273,13 @@ if ($action === 'purchase') {
     $source = trim($_POST['source']   ?? '');
     $count  = max(1, (int)($_POST['count'] ?? 1));
 
-    $chars = itemshop_get_chars_with_status($db, $username);
+    $char_status = itemshop_get_chars_with_status($db, $username);
+    if (!$char_status['ok']) {
+        echo json_encode(['ok' => false, 'error' => $char_status['error']]);
+        exit;
+    }
+
+    $chars = $char_status['characters'];
     $charName = null;
     foreach ($chars as $c) {
         if ($c['online']) { $charName = $c['Name']; break; }

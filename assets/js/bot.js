@@ -132,7 +132,7 @@ async function initBot() {
         });
 
         client.on('messageCreate', async (message) => {
-            if (message.author.bot || !message.guild) return;
+            if (message.author.bot || !message.guild || !Number(config.guild_chat_sync)) return;
 
             const payload = {
                 action: 'guild_chat',
@@ -182,7 +182,19 @@ function sendWebhook(rawPayload, signature) {
     }, (res) => {
         res.on('data', chunk => responseData += chunk);
         res.on('end', () => {
-            console.log(`[guild_chat webhook] HTTP ${res.statusCode} | Response: ${responseData}`);
+            let parsed = null;
+            try {
+                parsed = JSON.parse(responseData);
+            } catch (_) {
+                // The status and raw response below are enough to diagnose invalid JSON.
+            }
+
+            if (res.statusCode < 200 || res.statusCode >= 300 || !parsed || parsed.status !== 'ok') {
+                console.error(`[guild_chat webhook] HTTP ${res.statusCode} | Response: ${responseData}`);
+                return;
+            }
+
+            console.log(`[guild_chat webhook] delivered | Response: ${responseData}`);
         });
     });
     req.on('error', (err) => {
@@ -287,13 +299,22 @@ function startSocketServer(port, secret, client) {
                     const payloadData = packet.params || packet.data || {};
                     const { channel_id, guild, player, message } = payloadData;
                     console.log(`[socket in] guild_chat_outbound -> channel_id=${channel_id} guild=${guild} player=${player}`);
-                    const channel = await client.channels.fetch(channel_id).catch((e) => { console.log('[socket in] channel fetch failed:', e.message); return null; });
-                    if (channel && channel.isTextBased()) {
-                        await channel.send(`**[${guild}] ${player}:** ${message}`).catch((e) => console.log('[socket in] channel send failed:', e.message));
-                    } else {
-                        console.log(`[socket in] channel not found or not text-based: ${channel_id}`);
+
+                    try {
+                        const channel = await client.channels.fetch(channel_id);
+                        if (!channel || !channel.isTextBased()) {
+                            throw new Error(`Channel not found or not text-based: ${channel_id}`);
+                        }
+
+                        const sent = await channel.send({
+                            content: `**[${guild}] ${player}:** ${message}`,
+                            allowedMentions: { parse: [] }
+                        });
+                        socket.write(JSON.stringify({ status: 'ok', message_id: sent.id }));
+                    } catch (e) {
+                        console.error('[socket in] guild chat delivery failed:', e.message);
+                        socket.write(JSON.stringify({ status: 'error', message: e.message }));
                     }
-                    socket.write(JSON.stringify({ status: 'ok' }));
                     socket.end();
                     return;
                 }
@@ -335,6 +356,9 @@ function startSocketServer(port, secret, client) {
                 socket.write(JSON.stringify({ status: 'ok' }));
             } catch (e) {
                 console.log('[socket in] parse/handling error:', e.message);
+                if (!socket.destroyed) {
+                    socket.write(JSON.stringify({ status: 'error', message: e.message }));
+                }
             }
             socket.end();
         });

@@ -410,7 +410,7 @@ async function igcRefresh() {
         // Server indicator
         const dot   = document.querySelector('.igc-dot');
         const label = document.getElementById('igc-server-label');
-        if (data.server_online) {
+        if (data.server_online === true) {
             dot.className   = 'igc-dot igc-dot--on';
             label.textContent = IGC_I18N.serverOnline;
         } else {
@@ -418,10 +418,20 @@ async function igcRefresh() {
             label.textContent = IGC_I18N.serverOffline;
         }
 
+        const list = document.getElementById('igc-player-list');
+        if (data.ok !== true) {
+            document.getElementById('igc-player-count').textContent = '0';
+            const errorBox = document.createElement('div');
+            errorBox.className = 'igc-empty-players igc-empty-players--err';
+            errorBox.textContent = data.error || IGC_I18N.statusCheckFail;
+            list.replaceChildren(errorBox);
+            igcLog('✗ ' + (data.error || IGC_I18N.statusCheckFail), 'err');
+            return;
+        }
+
         const players = data.players || [];
         document.getElementById('igc-player-count').textContent = players.length;
 
-        const list = document.getElementById('igc-player-list');
         if (!players.length) {
             list.innerHTML = '<div class="igc-empty-players">' + IGC_I18N.noPlayersOnline + '</div>';
             return;

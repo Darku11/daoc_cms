@@ -180,7 +180,9 @@ function itemshopLoadStatus() {
 
         if (!data.ok) {
             box.classList.add('is-error');
-            text.textContent = ITEMSHOP_I18N.serverUnreachable;
+            text.textContent = data.error
+                ? ITEMSHOP_I18N.serverUnreachable + ' (' + data.error + ')'
+                : ITEMSHOP_I18N.serverUnreachable;
             return;
         }
 

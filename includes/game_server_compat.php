@@ -93,6 +93,44 @@ function daoc_game_column_exists(PDO $db, string $table, string $column): bool
     return $cache[$key] = ($stmt->fetchColumn() !== false);
 }
 
+/** Resolve the physical game-table name for case-sensitive MySQL hosts. */
+function daoc_game_table_name(PDO $db, string $table): ?string
+{
+    static $cache = [];
+
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+        return null;
+    }
+
+    $key = spl_object_id($db) . ':' . strtolower($table);
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    $stmt = $db->prepare(
+        'SELECT TABLE_NAME
+           FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE()
+            AND LOWER(TABLE_NAME) = LOWER(?)
+          LIMIT 1'
+    );
+    $stmt->execute([$table]);
+    $name = $stmt->fetchColumn();
+
+    return $cache[$key] = ($name === false ? null : (string)$name);
+}
+
+/** Return a safely quoted physical game-table identifier. */
+function daoc_game_table_sql(PDO $db, string $table): string
+{
+    $name = daoc_game_table_name($db, $table) ?? $table;
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $name)) {
+        throw new InvalidArgumentException('Invalid game-table identifier.');
+    }
+
+    return '`' . $name . '`';
+}
+
 /**
  * Return the physical columns of a game table, preserving their database names.
  *

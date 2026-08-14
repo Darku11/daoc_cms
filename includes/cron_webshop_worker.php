@@ -8,17 +8,6 @@ require_once(__DIR__ . '/db.php');
 
 const MAX_ATTEMPTS = 10;
 
-// Fetch the online list once, instead of per-order (saves bridge roundtrips)
-$status = aldhran_console_call('status', [], 'GET');
-if (!($status['ok'] ?? false)) {
-    error_log('[webshop_worker] Bridge unreachable, skipping cycle.');
-    exit;
-}
-$online_names = array_map(
-    fn($p) => strtolower($p['Name']),
-    $status['players'] ?? []
-);
-
 $stmt = $db->prepare("
     SELECT * FROM webshop_orders
     WHERE delivered = 0 AND attempts < ?
@@ -27,6 +16,19 @@ $stmt = $db->prepare("
 ");
 $stmt->execute([MAX_ATTEMPTS]);
 $pending = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+if (!$pending) exit;
+
+// Check only the pending recipients. This avoids coupling delivery retries to
+// the richer admin status payload and works identically on both server cores.
+$presence = aldhran_console_call('players/online', [
+    'names' => array_values(array_unique(array_column($pending, 'player_name'))),
+]);
+if (!($presence['ok'] ?? false)) {
+    error_log('[webshop_worker] Player presence check failed: ' . ($presence['error'] ?? 'unknown error'));
+    exit;
+}
+$online_names = array_map('strtolower', $presence['online'] ?? []);
 
 foreach ($pending as $order) {
     $playerLower = strtolower($order['player_name']);

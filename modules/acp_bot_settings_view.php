@@ -19,9 +19,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_bot_settings']) 
         
         $enableGuildChatSync = isset($_POST['guild_chat_sync']) ? 1 : 0;
 
-        // Automatic DB migration for Guild Chat Sync & Live Events
-        // Direct execution with error suppression avoids potential permission issues with SHOW COLUMNS
-        try { $db->exec("ALTER TABLE `guild` ADD COLUMN `discord_channel_id` VARCHAR(50) DEFAULT NULL"); } catch (Exception $e) {}
+        // Automatic DB migration for Guild Chat Sync & Live Events.
+        try {
+            $guildTable = daoc_game_table_sql($db, 'guild');
+            $db->exec("ALTER TABLE {$guildTable} ADD COLUMN `discord_channel_id` VARCHAR(50) DEFAULT NULL");
+        } catch (Throwable $e) {
+            if ($enableGuildChatSync) {
+                try {
+                    if (!daoc_game_column_exists($db, 'guild', 'discord_channel_id')) {
+                        $enableGuildChatSync = 0;
+                        $msg_err = 'Guild chat sync could not be enabled because the guild table migration failed.';
+                        error_log('Guild chat schema migration failed: ' . $e->getMessage());
+                    }
+                } catch (Throwable $schemaError) {
+                    $enableGuildChatSync = 0;
+                    $msg_err = 'Guild chat sync could not verify the guild table schema.';
+                    error_log('Guild chat schema verification failed: ' . $schemaError->getMessage());
+                }
+            }
+        }
         try { $db->exec("ALTER TABLE `cms_bot_settings` ADD COLUMN `guild_chat_sync` TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $e) {}
         try {
             $db->exec("
