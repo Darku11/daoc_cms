@@ -323,7 +323,7 @@ const IE_FIELDS = ['Id_nb','TranslationId','Name','ExamineArticle','MessageArtic
 
 function ie_populate_form(item, is_new) {
     document.getElementById('ie-empty-state').style.display  = 'none';
-    document.getElementById('ie-editor-form').style.display  = '';
+    document.getElementById('ie-editor-form').style.display  = 'block';
     document.getElementById('ie-is-new').value      = is_new ? '1' : '0';
     document.getElementById('ie-original-id').value = is_new ? '' : (item.Id_nb || '');
     IE_FIELDS.forEach(f => { const el = document.getElementById('f-'+f); if (el) el.value = item[f] ?? (el.type==='number'?0:''); });
