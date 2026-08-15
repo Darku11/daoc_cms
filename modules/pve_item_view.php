@@ -22,9 +22,6 @@ $item = $itemId !== '' ? daoc_pve_item_detail($db, $itemId) : null;
                     <h2><?= h($item['name']) ?></h2>
                     <div class="pve-item-id"><?= h($item['id']) ?></div>
                 </div>
-                <?php if (!empty($item['model'])): ?>
-                    <img class="pve-item-icon" src="assets/img/icons/items/<?= (int)$item['model'] ?>.png" alt="" onerror="this.src='assets/img/icons/items/default.png'">
-                <?php endif; ?>
             </div>
 
             <div class="pve-item-stat-grid">

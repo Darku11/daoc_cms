@@ -85,6 +85,23 @@ function daoc_pve_zone_map_path(string $zoneName): ?string
     return null;
 }
 
+function daoc_pve_is_merchant_class(string $classType): bool
+{
+    $classType = strtolower(trim($classType));
+    if ($classType === '') return false;
+
+    $classType = trim(explode(',', $classType, 2)[0]);
+    $parts = preg_split('/[.+]/', $classType);
+    $shortName = (string)end($parts);
+    if (str_contains($shortName, 'merchant')) return true;
+
+    return in_array($shortName, [
+        'gamestablemaster',
+        'gameboatstablemaster',
+        'gamehousinghastener',
+    ], true);
+}
+
 function daoc_pve_item_merchants(PDO $db, string $itemId): array
 {
     static $cache = [];
@@ -101,13 +118,14 @@ function daoc_pve_item_merchants(PDO $db, string $itemId): array
     $listColumn = daoc_pve_pick_column($merchantColumns, ['ItemListID','ItemListId','ItemList_ID','ItemsListTemplateID']);
     $mobListColumn = daoc_pve_pick_column($mobColumns, ['ItemsListTemplateID','ItemsListTemplateId','ItemListID','ItemListId']);
     $nameColumn = daoc_pve_pick_column($mobColumns, ['Name']);
+    $classColumn = daoc_pve_pick_column($mobColumns, ['ClassType','Class_Type']);
     $xColumn = daoc_pve_pick_column($mobColumns, ['X']);
     $yColumn = daoc_pve_pick_column($mobColumns, ['Y']);
     $zColumn = daoc_pve_pick_column($mobColumns, ['Z']);
     $regionColumn = daoc_pve_pick_column($mobColumns, ['Region','RegionID']);
     $realmColumn = daoc_pve_pick_column($mobColumns, ['Realm']);
 
-    if (!$itemColumn || !$listColumn || !$mobListColumn || !$nameColumn || !$xColumn || !$yColumn || !$regionColumn) {
+    if (!$itemColumn || !$listColumn || !$mobListColumn || !$nameColumn || !$classColumn || !$xColumn || !$yColumn || !$regionColumn) {
         return $cache[$cacheKey] = [];
     }
 
@@ -115,12 +133,16 @@ function daoc_pve_item_merchants(PDO $db, string $itemId): array
     $mobTable = daoc_game_table_sql($db, 'mob');
     $stmt = $db->prepare("SELECT DISTINCT `{$listColumn}` FROM {$merchantTable} WHERE `{$itemColumn}` = ?");
     $stmt->execute([$itemId]);
-    $listIds = array_values(array_filter($stmt->fetchAll(PDO::FETCH_COLUMN), static fn($v): bool => $v !== null && $v !== ''));
+    $listIds = array_values(array_unique(array_filter(
+        array_map(static fn($v): string => trim((string)$v), $stmt->fetchAll(PDO::FETCH_COLUMN)),
+        static fn(string $v): bool => $v !== ''
+    )));
     if ($listIds === []) return $cache[$cacheKey] = [];
 
     $placeholders = implode(',', array_fill(0, count($listIds), '?'));
     $select = [
         "`{$nameColumn}` AS MerchantName",
+        "`{$classColumn}` AS MerchantClassType",
         "`{$xColumn}` AS X",
         "`{$yColumn}` AS Y",
         $zColumn ? "`{$zColumn}` AS Z" : '0 AS Z',
@@ -143,6 +165,12 @@ function daoc_pve_item_merchants(PDO $db, string $itemId): array
 
     $merchants = [];
     foreach ($rows as $row) {
+        if (!daoc_pve_is_merchant_class((string)($row['MerchantClassType'] ?? ''))) continue;
+
+        $merchantName = trim((string)($row['MerchantName'] ?? ''));
+        $itemListId = trim((string)($row['ItemListID'] ?? ''));
+        if ($merchantName === '' || !in_array($itemListId, $listIds, true)) continue;
+
         $x = (float)$row['X'];
         $y = (float)$row['Y'];
         $region = (int)$row['Region'];
@@ -165,7 +193,7 @@ function daoc_pve_item_merchants(PDO $db, string $itemId): array
         }
 
         $merchants[] = [
-            'name' => (string)$row['MerchantName'],
+            'name' => $merchantName,
             'x' => (int)round($x),
             'y' => (int)round($y),
             'z' => (int)round((float)$row['Z']),
@@ -175,7 +203,7 @@ function daoc_pve_item_merchants(PDO $db, string $itemId): array
             'map_image' => daoc_pve_zone_map_path($zoneName),
             'map_x' => $xPct,
             'map_y' => $yPct,
-            'item_list_id' => (string)$row['ItemListID'],
+            'item_list_id' => $itemListId,
         ];
     }
 
