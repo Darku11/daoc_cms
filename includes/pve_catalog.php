@@ -102,6 +102,11 @@ function daoc_pve_is_merchant_class(string $classType): bool
     ], true);
 }
 
+function daoc_pve_is_merchant_sale_slot(int $page, int $slot): bool
+{
+    return $page >= 0 && $page < 5 && $slot >= 0 && $slot < 30;
+}
+
 function daoc_pve_item_merchants(PDO $db, string $itemId): array
 {
     static $cache = [];
@@ -116,6 +121,8 @@ function daoc_pve_item_merchants(PDO $db, string $itemId): array
     $mobColumns = daoc_game_table_columns($db, 'mob');
     $itemColumn = daoc_pve_pick_column($merchantColumns, ['ItemTemplateID','ItemTemplateId','ItemTemplate_Id','TemplateID']);
     $listColumn = daoc_pve_pick_column($merchantColumns, ['ItemListID','ItemListId','ItemList_ID','ItemsListTemplateID']);
+    $pageColumn = daoc_pve_pick_column($merchantColumns, ['PageNumber','Page','PageIndex']);
+    $slotColumn = daoc_pve_pick_column($merchantColumns, ['SlotPosition','Slot','SlotIndex']);
     $mobListColumn = daoc_pve_pick_column($mobColumns, ['ItemsListTemplateID','ItemsListTemplateId','ItemListID','ItemListId']);
     $nameColumn = daoc_pve_pick_column($mobColumns, ['Name']);
     $classColumn = daoc_pve_pick_column($mobColumns, ['ClassType','Class_Type']);
@@ -125,18 +132,28 @@ function daoc_pve_item_merchants(PDO $db, string $itemId): array
     $regionColumn = daoc_pve_pick_column($mobColumns, ['Region','RegionID']);
     $realmColumn = daoc_pve_pick_column($mobColumns, ['Realm']);
 
-    if (!$itemColumn || !$listColumn || !$mobListColumn || !$nameColumn || !$classColumn || !$xColumn || !$yColumn || !$regionColumn) {
+    if (!$itemColumn || !$listColumn || !$pageColumn || !$slotColumn || !$mobListColumn || !$nameColumn || !$classColumn || !$xColumn || !$yColumn || !$regionColumn) {
         return $cache[$cacheKey] = [];
     }
 
     $merchantTable = daoc_game_table_sql($db, 'merchantitem');
     $mobTable = daoc_game_table_sql($db, 'mob');
-    $stmt = $db->prepare("SELECT DISTINCT `{$listColumn}` FROM {$merchantTable} WHERE `{$itemColumn}` = ?");
+    $stmt = $db->prepare(
+        "SELECT `{$listColumn}` AS ItemListID, `{$pageColumn}` AS PageNumber, `{$slotColumn}` AS SlotPosition
+         FROM {$merchantTable}
+         WHERE `{$itemColumn}` = ?"
+    );
     $stmt->execute([$itemId]);
-    $listIds = array_values(array_unique(array_filter(
-        array_map(static fn($v): string => trim((string)$v), $stmt->fetchAll(PDO::FETCH_COLUMN)),
-        static fn(string $v): bool => $v !== ''
-    )));
+
+    $listIds = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $merchantItem) {
+        $listId = trim((string)($merchantItem['ItemListID'] ?? ''));
+        $page = (int)($merchantItem['PageNumber'] ?? -1);
+        $slot = (int)($merchantItem['SlotPosition'] ?? -1);
+        if ($listId === '' || !daoc_pve_is_merchant_sale_slot($page, $slot)) continue;
+        $listIds[$listId] = true;
+    }
+    $listIds = array_keys($listIds);
     if ($listIds === []) return $cache[$cacheKey] = [];
 
     $placeholders = implode(',', array_fill(0, count($listIds), '?'));
