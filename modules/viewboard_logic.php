@@ -28,6 +28,22 @@ if ($userPriv < 4 && $userPriv < $effective_min_view) {
     header("Location: index.php?p=spike&err=no_access"); exit;
 }
 
+$subboards = [];
+try {
+    $stmt_subboards = $db->prepare("
+        SELECT b.id, b.title
+        FROM spike_boards b
+        JOIN spike_categories c ON b.cat_id = c.id
+        WHERE b.parent_id = ?
+          AND (? >= 4 OR ? >= CASE WHEN b.min_priv > 0 THEN b.min_priv ELSE c.min_priv END)
+        ORDER BY b.pos ASC, b.id ASC
+    ");
+    $stmt_subboards->execute([$board_id, $userPriv, $userPriv]);
+    $subboards = $stmt_subboards->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) {
+    error_log("Spike Viewboard Subboards Error: " . $e->getMessage());
+}
+
 $stmt_all_b = $db->prepare("
     SELECT b.id, b.title, c.title AS cat_title, c.pos AS cat_pos,
            CASE WHEN b.min_priv > 0 THEN b.min_priv ELSE c.min_priv END AS effective_min_view

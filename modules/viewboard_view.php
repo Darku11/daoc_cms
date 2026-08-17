@@ -43,6 +43,16 @@ function vb_thread_url(array $row): string {
             <?php if (!empty($board_info['description'])): ?>
             <div class="vb-board-desc"><?= h($board_info['description']) ?></div>
             <?php endif; ?>
+            <?php if (!empty($subboards)): ?>
+            <div class="spk-subboard-links">
+                <span class="spk-subboard-label"><?= t('spike.subforums', [], 'Subforums') ?>:</span>
+                <?php foreach ($subboards as $subboard): ?>
+                <a class="spk-subboard-link" href="index.php?p=viewboard&id=<?= (int)$subboard['id'] ?>">
+                    <i class="fas fa-level-down-alt"></i><?= h($subboard['title'] ?? 'Untitled') ?>
+                </a>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
             <small class="vb-board-meta">
                 <?= $total_threads ?> <?= t('viewboard.col_topic',[],'Threads') ?>
                 <?php if ($total_pages>1): ?> · <?= t('viewthread.page',[],'Page') ?> <?= $current_page ?>/<?= $total_pages ?><?php endif; ?>

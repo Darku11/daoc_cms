@@ -34,7 +34,7 @@ foreach ($categories as $cat) {
         (SELECT u3.username FROM spike_posts p4 JOIN spike_threads t4 ON p4.thread_id = t4.id JOIN users u3 ON p4.author_id = u3.id WHERE t4.board_id = b.id ORDER BY p4.id DESC LIMIT 1) as last_post_user
         FROM spike_boards b
         WHERE b.cat_id = ? AND b.min_priv <= ?
-        ORDER BY b.pos ASC
+        ORDER BY b.pos ASC, b.id ASC
     ");
     $stmt_board->execute([$cat_id, $userPriv]);
     $boards = $stmt_board->fetchAll();
@@ -43,14 +43,36 @@ foreach ($categories as $cat) {
         continue;
     }
 
-    $cat_boards = [];
+    $board_index = [];
     foreach ($boards as $b) {
+        $b['id']           = (int)$b['id'];
+        $b['parent_id']    = isset($b['parent_id']) ? (int)$b['parent_id'] : 0;
         $b['thread_count'] = (int)$b['thread_count'];
         $b['post_count']   = (int)$b['post_count'];
         $b['cat_min_post'] = (int)($cat['min_priv_post'] ?? 0);
-        $b['graphic_url'] = (string)($b['graphic_url'] ?? '');
-        $cat_boards[] = $b;
+        $b['graphic_url']  = (string)($b['graphic_url'] ?? '');
+        $b['subboards']    = [];
+        $board_index[$b['id']] = $b;
     }
+
+    foreach ($board_index as $board_id => $board) {
+        $parent_id = (int)($board['parent_id'] ?? 0);
+        if ($parent_id > 0 && isset($board_index[$parent_id])) {
+            $board_index[$parent_id]['subboards'][] = [
+                'id'    => $board_id,
+                'title' => $board['title'] ?? 'Untitled',
+            ];
+        }
+    }
+
+    $cat_boards = [];
+    foreach ($board_index as $board_id => $board) {
+        $parent_id = (int)($board['parent_id'] ?? 0);
+        if ($parent_id <= 0 || !isset($board_index[$parent_id])) {
+            $cat_boards[] = $board;
+        }
+    }
+
     $forum_structure[] = ['info' => $cat, 'boards' => $cat_boards];
 }
 

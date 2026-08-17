@@ -66,6 +66,7 @@ $show_latest_posts = ($spike_settings['latest_posts_enabled'] ?? '1') === '1';
                 $can_post     = ($userPriv >= $required_post_priv);
                 $thread_count = (int)($board['thread_count'] ?? 0);
                 $post_count   = (int)($board['post_count']   ?? 0);
+                $subboards    = $board['subboards'] ?? [];
             ?>
             <div class="spk-board" onclick="window.location.href='?p=viewboard&id=<?= (int)$board['id'] ?>'">
                 <div class="spk-board-icon">
@@ -88,6 +89,16 @@ $show_latest_posts = ($spike_settings['latest_posts_enabled'] ?? '1') === '1';
                     </div>
                     <?php if (!empty($board['description'])): ?>
                     <div class="spk-board-desc"><?= h($board['description']) ?></div>
+                    <?php endif; ?>
+                    <?php if (!empty($subboards)): ?>
+                    <div class="spk-subboard-links" onclick="event.stopPropagation()">
+                        <span class="spk-subboard-label"><?= t('spike.subforums', [], 'Subforums') ?>:</span>
+                        <?php foreach ($subboards as $subboard): ?>
+                        <a class="spk-subboard-link" href="?p=viewboard&id=<?= (int)$subboard['id'] ?>">
+                            <i class="fas fa-level-down-alt"></i><?= h($subboard['title'] ?? 'Untitled') ?>
+                        </a>
+                        <?php endforeach; ?>
+                    </div>
                     <?php endif; ?>
                 </div>
                 <div class="spk-board-stat">
