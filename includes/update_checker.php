@@ -95,6 +95,47 @@ function daoc_cms_github_request(string $url): ?array
     return is_array($decoded) ? $decoded : null;
 }
 
+function daoc_cms_update_available(?array $release, string $localVersion): bool
+{
+    if ($release === null || $localVersion === 'unknown') return false;
+
+    $tag = (string) ($release['tag'] ?? $release['tag_name'] ?? '');
+    if ($tag === '') return false;
+
+    return version_compare(
+        daoc_cms_normalize_version($tag),
+        daoc_cms_normalize_version($localVersion),
+        '>'
+    );
+}
+
+function daoc_cms_refresh_cached_local_state(array $cached, string $localVersion, ?string $localSha): array
+{
+    $cached['local_version'] = $localVersion;
+    $cached['local_sha'] = $localSha;
+    $cached['update_available'] = daoc_cms_update_available(
+        is_array($cached['official_release'] ?? null) ? $cached['official_release'] : null,
+        $localVersion
+    );
+
+    $localCommitSeen = $localSha === null;
+    $recentCommits = [];
+    foreach (($cached['recent_commits'] ?? []) as $commit) {
+        if (!is_array($commit)) continue;
+
+        $sha = strtolower((string) ($commit['sha'] ?? ''));
+        if ($localSha !== null && $sha === $localSha) {
+            $localCommitSeen = true;
+        }
+        $commit['new'] = $localSha !== null && !$localCommitSeen;
+        $recentCommits[] = $commit;
+    }
+
+    $cached['recent_commits'] = $recentCommits;
+    $cached['has_new_commits'] = $localSha !== null && !$localCommitSeen;
+    return $cached;
+}
+
 function daoc_cms_update_status(bool $forceRefresh = false): array
 {
     $root = dirname(__DIR__);
@@ -102,45 +143,71 @@ function daoc_cms_update_status(bool $forceRefresh = false): array
     $cacheFile = $cacheDir . '/acp_github_status.json';
     $cacheTtl = 900;
 
-    if (!$forceRefresh && is_file($cacheFile) && (time() - (int) @filemtime($cacheFile)) < $cacheTtl) {
-        $cached = json_decode((string) @file_get_contents($cacheFile), true);
-        if (is_array($cached)) return $cached;
-    }
-
     $localVersion = daoc_cms_local_version();
     $localSha = daoc_cms_local_git_sha();
+
+    $cached = null;
+    if (is_file($cacheFile)) {
+        $decodedCache = json_decode((string) @file_get_contents($cacheFile), true);
+        if (is_array($decodedCache)) {
+            $cached = daoc_cms_refresh_cached_local_state($decodedCache, $localVersion, $localSha);
+        }
+    }
+
+    if (
+        !$forceRefresh
+        && $cached !== null
+        && (time() - (int) @filemtime($cacheFile)) < $cacheTtl
+    ) {
+        $cached['using_cached_data'] = false;
+        $cached['cache_stale'] = false;
+        return $cached;
+    }
 
     $releases = daoc_cms_github_request(DAOC_CMS_GITHUB_API . '/releases?per_page=10');
     $commits  = daoc_cms_github_request(DAOC_CMS_GITHUB_API . '/commits?sha=main&per_page=8');
 
+    $releaseReachable = is_array($releases);
+    $commitsReachable = is_array($commits);
+    $reachable = $releaseReachable || $commitsReachable;
+
+    if (!$reachable && $cached !== null) {
+        $cached['reachable'] = false;
+        $cached['release_reachable'] = false;
+        $cached['commits_reachable'] = false;
+        $cached['using_cached_data'] = true;
+        $cached['cache_stale'] = true;
+        $cached['refresh_attempted_at'] = time();
+        return $cached;
+    }
+
     $officialRelease = null;
-    if (is_array($releases)) {
+    if ($releaseReachable) {
         foreach ($releases as $release) {
             if (!is_array($release) || !empty($release['draft'])) continue;
-            $officialRelease = $release;
+            $officialRelease = [
+                'name'       => (string) ($release['name'] ?? ''),
+                'tag'        => (string) ($release['tag_name'] ?? ''),
+                'url'        => (string) ($release['html_url'] ?? ''),
+                'published'  => (string) ($release['published_at'] ?? ''),
+                'prerelease' => !empty($release['prerelease']),
+            ];
             break;
         }
+    } elseif (is_array($cached['official_release'] ?? null)) {
+        $officialRelease = $cached['official_release'];
     }
 
     $latestVersion = null;
-    $updateAvailable = false;
     if ($officialRelease !== null) {
-        $tag = (string) ($officialRelease['tag_name'] ?? '');
-        if ($tag !== '') {
-            $latestVersion = $tag;
-            if ($localVersion !== 'unknown') {
-                $updateAvailable = version_compare(
-                    daoc_cms_normalize_version($tag),
-                    daoc_cms_normalize_version($localVersion),
-                    '>'
-                );
-            }
-        }
+        $tag = (string) ($officialRelease['tag'] ?? '');
+        if ($tag !== '') $latestVersion = $tag;
     }
+    $updateAvailable = daoc_cms_update_available($officialRelease, $localVersion);
 
     $recentCommits = [];
     $localCommitSeen = $localSha === null;
-    if (is_array($commits)) {
+    if ($commitsReachable) {
         foreach ($commits as $commit) {
             if (!is_array($commit)) continue;
 
@@ -160,29 +227,43 @@ function daoc_cms_update_status(bool $forceRefresh = false): array
                 'new'     => $localSha !== null && !$localCommitSeen,
             ];
         }
+    } elseif ($cached !== null) {
+        $recentCommits = $cached['recent_commits'] ?? [];
+        foreach ($recentCommits as $commit) {
+            if (!is_array($commit)) continue;
+            if ($localSha !== null && strtolower((string) ($commit['sha'] ?? '')) === $localSha) {
+                $localCommitSeen = true;
+                break;
+            }
+        }
     }
 
+    $usingCachedData = (!$releaseReachable && $officialRelease !== null)
+        || (!$commitsReachable && !empty($recentCommits));
+
     $result = [
-        'checked_at'        => time(),
-        'reachable'         => is_array($releases) || is_array($commits),
-        'local_version'     => $localVersion,
-        'local_sha'         => $localSha,
-        'official_release'  => $officialRelease === null ? null : [
-            'name'       => (string) ($officialRelease['name'] ?? ''),
-            'tag'        => (string) ($officialRelease['tag_name'] ?? ''),
-            'url'        => (string) ($officialRelease['html_url'] ?? ''),
-            'published'  => (string) ($officialRelease['published_at'] ?? ''),
-            'prerelease' => !empty($officialRelease['prerelease']),
-        ],
-        'latest_version'    => $latestVersion,
-        'update_available'  => $updateAvailable,
-        'recent_commits'    => $recentCommits,
-        'has_new_commits'   => $localSha !== null && !$localCommitSeen,
+        'checked_at'          => time(),
+        'reachable'           => $reachable,
+        'release_reachable'   => $releaseReachable,
+        'commits_reachable'   => $commitsReachable,
+        'using_cached_data'   => $usingCachedData,
+        'cache_stale'         => $usingCachedData,
+        'local_version'       => $localVersion,
+        'local_sha'           => $localSha,
+        'official_release'    => $officialRelease,
+        'latest_version'      => $latestVersion,
+        'update_available'    => $updateAvailable,
+        'recent_commits'      => $recentCommits,
+        'has_new_commits'     => $localSha !== null && !$localCommitSeen,
     ];
 
-    if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
-    if (is_dir($cacheDir) && is_writable($cacheDir)) {
-        @file_put_contents($cacheFile, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    // Keep the last complete GitHub snapshot intact. A temporary outage or a
+    // partially failing endpoint must never replace usable update information.
+    if ($releaseReachable && $commitsReachable) {
+        if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
+        if (is_dir($cacheDir) && is_writable($cacheDir)) {
+            @file_put_contents($cacheFile, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+        }
     }
 
     return $result;

@@ -9,6 +9,9 @@ $release      = $updateStatus['official_release'] ?? null;
 $commits      = array_slice($updateStatus['recent_commits'] ?? [], 0, 5);
 $localVersion = (string) ($updateStatus['local_version'] ?? 'unknown');
 $localSha     = $updateStatus['local_sha'] ?? null;
+$releaseReachable = array_key_exists('release_reachable', $updateStatus)
+    ? !empty($updateStatus['release_reachable'])
+    : !empty($updateStatus['reachable']);
 ?>
 
 <?php if (!empty($updateStatus['update_available']) && is_array($release)): ?>
@@ -56,15 +59,24 @@ $localSha     = $updateStatus['local_sha'] ?? null;
                         <?= !empty($updateStatus['update_available']) ? 'Update available' : 'Up to date' ?>
                     </div>
                 </div>
-            <?php elseif (!empty($updateStatus['reachable'])): ?>
+            <?php elseif ($releaseReachable): ?>
                 <div class="d-row">
                     <div class="d-row-lbl">Official release channel</div>
                     <div class="d-row-val">No published release yet</div>
                 </div>
             <?php else: ?>
                 <div class="d-row">
+                    <div class="d-row-lbl">Update status</div>
+                    <div class="d-row-val" style="color:#bfa267;">Temporarily unavailable</div>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!empty($updateStatus['using_cached_data'])): ?>
+                <div class="d-row">
                     <div class="d-row-lbl">GitHub status</div>
-                    <div class="d-row-val" style="color:#bfa267;">Unavailable</div>
+                    <div class="d-row-val" style="color:#bfa267;font-size:.88em;max-width:58%;text-align:right;">
+                        GitHub is temporarily unavailable. Showing the last known update data.
+                    </div>
                 </div>
             <?php endif; ?>
 
