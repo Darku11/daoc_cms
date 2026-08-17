@@ -7,17 +7,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nested_board_action']
 }
 
 $nested_admin_boards = [];
+$nested_schema_ready = false;
+
 try {
-    $nested_admin_boards = $db->query(
-        "SELECT id, cat_id, parent_id, title, pos
-         FROM spike_boards
-         ORDER BY cat_id ASC, pos ASC, id ASC"
-    )->fetchAll(PDO::FETCH_ASSOC);
-} catch (Throwable $e) {}
+    $column = $db->query("SHOW COLUMNS FROM spike_boards LIKE 'parent_id'");
+    $nested_schema_ready = (bool)$column->fetch(PDO::FETCH_ASSOC);
+
+    if ($nested_schema_ready) {
+        $nested_admin_boards = $db->query(
+            "SELECT id, cat_id, parent_id, title, pos
+             FROM spike_boards
+             ORDER BY cat_id ASC, pos ASC, id ASC"
+        )->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $nested_admin_boards = $db->query(
+            "SELECT id, cat_id, NULL AS parent_id, title, pos
+             FROM spike_boards
+             ORDER BY cat_id ASC, pos ASC, id ASC"
+        )->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (Throwable $e) {
+    $nested_schema_ready = false;
+}
 ?>
 <script>
 (function () {
     'use strict';
+
+    const nestedSchemaReady = <?= $nested_schema_ready ? 'true' : 'false' ?>;
+    if (!nestedSchemaReady) {
+        return;
+    }
 
     const boards = <?= json_encode($nested_admin_boards, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     const byId = new Map(boards.map(board => [Number(board.id), board]));

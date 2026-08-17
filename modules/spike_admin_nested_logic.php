@@ -14,6 +14,17 @@ if ((int)($userPriv ?? 0) < 4) {
 checkToken($_POST['csrf_token'] ?? '');
 $nested_action = (string)($_POST['nested_board_action'] ?? '');
 
+try {
+    $schemaCheck = $db->query("SHOW COLUMNS FROM spike_boards LIKE 'parent_id'");
+    if (!$schemaCheck->fetch(PDO::FETCH_ASSOC)) {
+        echo 'ERROR: Nested subforum database migration is not applied. Run php migrate.php.';
+        exit;
+    }
+} catch (Throwable $e) {
+    echo 'ERROR: Unable to verify nested subforum database schema.';
+    exit;
+}
+
 function spike_nested_graphic_value(string $value): ?string
 {
     if (function_exists('spikeBoardGraphicValue')) {
@@ -59,61 +70,64 @@ function spike_nested_descendants(PDO $db, int $boardId): array
 }
 
 if ($nested_action === 'create_board') {
-    $catId    = (int)($_POST['target_cat_id'] ?? 0);
-    $parentId = (int)($_POST['parent_id'] ?? 0);
-    $title    = trim((string)($_POST['board_title'] ?? ''));
-    $desc     = trim((string)($_POST['board_desc'] ?? ''));
-    $graphic  = spike_nested_graphic_value((string)($_POST['board_graphic'] ?? ''));
+    try {
+        $catId    = (int)($_POST['target_cat_id'] ?? 0);
+        $parentId = (int)($_POST['parent_id'] ?? 0);
+        $title    = trim((string)($_POST['board_title'] ?? ''));
+        $desc     = trim((string)($_POST['board_desc'] ?? ''));
+        $graphic  = spike_nested_graphic_value((string)($_POST['board_graphic'] ?? ''));
 
-    if ($catId <= 0 || $title === '') {
-        echo 'ERROR: Category and title are required.';
-        exit;
-    }
-    if ($graphic === null) {
-        echo 'ERROR: Invalid graphic path/URL.';
-        exit;
-    }
-
-    $catStmt = $db->prepare("SELECT id FROM spike_categories WHERE id=? LIMIT 1");
-    $catStmt->execute([$catId]);
-    if (!$catStmt->fetchColumn()) {
-        echo 'ERROR: Category not found.';
-        exit;
-    }
-
-    $parent = null;
-    if ($parentId > 0) {
-        $parentStmt = $db->prepare("SELECT id, cat_id FROM spike_boards WHERE id=? LIMIT 1");
-        $parentStmt->execute([$parentId]);
-        $parent = $parentStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$parent || (int)$parent['cat_id'] !== $catId) {
-            echo 'ERROR: Parent board must belong to the selected category.';
+        if ($catId <= 0 || $title === '') {
+            echo 'ERROR: Category and title are required.';
             exit;
         }
+        if ($graphic === null) {
+            echo 'ERROR: Invalid graphic path/URL.';
+            exit;
+        }
+
+        $catStmt = $db->prepare("SELECT id FROM spike_categories WHERE id=? LIMIT 1");
+        $catStmt->execute([$catId]);
+        if (!$catStmt->fetchColumn()) {
+            echo 'ERROR: Category not found.';
+            exit;
+        }
+
+        if ($parentId > 0) {
+            $parentStmt = $db->prepare("SELECT id, cat_id FROM spike_boards WHERE id=? LIMIT 1");
+            $parentStmt->execute([$parentId]);
+            $parent = $parentStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$parent || (int)$parent['cat_id'] !== $catId) {
+                echo 'ERROR: Parent board must belong to the selected category.';
+                exit;
+            }
+        }
+
+        $parentValue = $parentId > 0 ? $parentId : null;
+        $posStmt = $db->prepare("SELECT COALESCE(MAX(pos),0) FROM spike_boards WHERE cat_id=? AND parent_id <=> ?");
+        $posStmt->execute([$catId, $parentValue]);
+        $nextPos = (int)$posStmt->fetchColumn() + 1;
+
+        $stmt = $db->prepare(
+            "INSERT INTO spike_boards
+                (cat_id, parent_id, title, description, graphic_url, pos, min_priv, min_priv_post)
+             VALUES (?, ?, ?, ?, ?, ?, 1, 1)"
+        );
+        $stmt->execute([
+            $catId,
+            $parentValue,
+            $title,
+            $desc,
+            $graphic === '' ? null : $graphic,
+            $nextPos,
+        ]);
+
+        $newId = (int)$db->lastInsertId();
+        spike_nested_log('CREATE_BOARD', "Created '$title' as board $newId" . ($parentId > 0 ? " below board $parentId" : ''));
+        echo 'SUCCESS';
+    } catch (Throwable $e) {
+        echo 'ERROR: ' . $e->getMessage();
     }
-
-    $parentValue = $parentId > 0 ? $parentId : null;
-    $posStmt = $db->prepare("SELECT COALESCE(MAX(pos),0) FROM spike_boards WHERE cat_id=? AND parent_id <=> ?");
-    $posStmt->execute([$catId, $parentValue]);
-    $nextPos = (int)$posStmt->fetchColumn() + 1;
-
-    $stmt = $db->prepare(
-        "INSERT INTO spike_boards
-            (cat_id, parent_id, title, description, graphic_url, pos, min_priv, min_priv_post)
-         VALUES (?, ?, ?, ?, ?, ?, 1, 1)"
-    );
-    $stmt->execute([
-        $catId,
-        $parentValue,
-        $title,
-        $desc,
-        $graphic === '' ? null : $graphic,
-        $nextPos,
-    ]);
-
-    $newId = (int)$db->lastInsertId();
-    spike_nested_log('CREATE_BOARD', "Created '$title' as board $newId" . ($parentId > 0 ? " below board $parentId" : ''));
-    echo 'SUCCESS';
     exit;
 }
 
@@ -127,43 +141,43 @@ if ($nested_action === 'move_board') {
         exit;
     }
 
-    $boardStmt = $db->prepare("SELECT id, cat_id, parent_id, title FROM spike_boards WHERE id=? LIMIT 1");
-    $boardStmt->execute([$boardId]);
-    $board = $boardStmt->fetch(PDO::FETCH_ASSOC);
-    if (!$board) {
-        echo 'ERROR: Board not found.';
-        exit;
-    }
-
-    $catStmt = $db->prepare("SELECT id FROM spike_categories WHERE id=? LIMIT 1");
-    $catStmt->execute([$catId]);
-    if (!$catStmt->fetchColumn()) {
-        echo 'ERROR: Category not found.';
-        exit;
-    }
-
-    $descendants = spike_nested_descendants($db, $boardId);
-    if ($parentId === $boardId || in_array($parentId, $descendants, true)) {
-        echo 'ERROR: A board cannot be moved below itself or one of its descendants.';
-        exit;
-    }
-
-    if ($parentId > 0) {
-        $parentStmt = $db->prepare("SELECT id, cat_id FROM spike_boards WHERE id=? LIMIT 1");
-        $parentStmt->execute([$parentId]);
-        $parent = $parentStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$parent || (int)$parent['cat_id'] !== $catId) {
-            echo 'ERROR: Parent board must belong to the target category.';
+    try {
+        $boardStmt = $db->prepare("SELECT id, cat_id, parent_id, title FROM spike_boards WHERE id=? LIMIT 1");
+        $boardStmt->execute([$boardId]);
+        $board = $boardStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$board) {
+            echo 'ERROR: Board not found.';
             exit;
         }
-    }
 
-    $parentValue = $parentId > 0 ? $parentId : null;
-    $posStmt = $db->prepare("SELECT COALESCE(MAX(pos),0) FROM spike_boards WHERE cat_id=? AND parent_id <=> ? AND id<>?");
-    $posStmt->execute([$catId, $parentValue, $boardId]);
-    $nextPos = (int)$posStmt->fetchColumn() + 1;
+        $catStmt = $db->prepare("SELECT id FROM spike_categories WHERE id=? LIMIT 1");
+        $catStmt->execute([$catId]);
+        if (!$catStmt->fetchColumn()) {
+            echo 'ERROR: Category not found.';
+            exit;
+        }
 
-    try {
+        $descendants = spike_nested_descendants($db, $boardId);
+        if ($parentId === $boardId || in_array($parentId, $descendants, true)) {
+            echo 'ERROR: A board cannot be moved below itself or one of its descendants.';
+            exit;
+        }
+
+        if ($parentId > 0) {
+            $parentStmt = $db->prepare("SELECT id, cat_id FROM spike_boards WHERE id=? LIMIT 1");
+            $parentStmt->execute([$parentId]);
+            $parent = $parentStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$parent || (int)$parent['cat_id'] !== $catId) {
+                echo 'ERROR: Parent board must belong to the target category.';
+                exit;
+            }
+        }
+
+        $parentValue = $parentId > 0 ? $parentId : null;
+        $posStmt = $db->prepare("SELECT COALESCE(MAX(pos),0) FROM spike_boards WHERE cat_id=? AND parent_id <=> ? AND id<>?");
+        $posStmt->execute([$catId, $parentValue, $boardId]);
+        $nextPos = (int)$posStmt->fetchColumn() + 1;
+
         $db->beginTransaction();
 
         $subtree = array_merge([$boardId], $descendants);
