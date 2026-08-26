@@ -298,16 +298,26 @@ if ($action === 'purchase') {
     ]);
 
     if (!($result['ok'] ?? false) && ($result['gold_deducted'] ?? false)) {
-        $itemTemplateId = $result['item_id'] ?? '';
-        $ins = $db->prepare("INSERT INTO webshop_orders (player_name, item_template_id, count, delivered, created_at) VALUES (?, ?, ?, 0, NOW())");
-        $ins->execute([$charName, $itemTemplateId, $count]);
-        $result['fallback_queued'] = true;
-        $result['error'] = 'Purchase succeeded, delivery delayed. Your item will be sent automatically shortly.';
+        $itemTemplateId = trim((string)($result['item_id'] ?? ''));
+        if ($itemTemplateId === '') {
+            $result['error'] = 'Purchase was charged, but the delayed delivery could not be queued because the item reference is missing. Please contact an administrator.';
+        } else {
+            $ins = $db->prepare("INSERT INTO webshop_orders (player_name, item_template_id, count, delivered, created_at) VALUES (?, ?, ?, 0, NOW())");
+            $ins->execute([$charName, $itemTemplateId, $count]);
+            // Payment already succeeded. A queued delivery is a successful purchase,
+            // not a client-facing failure that invites a duplicate retry.
+            $result['ok'] = true;
+            $result['fallback_queued'] = true;
+            $result['delivery_status'] = 'queued';
+            $result['message'] = 'Purchase succeeded. Delivery is delayed and the item has been queued for automatic delivery.';
+            unset($result['error']);
+        }
     }
 
     aldhran_log('ITEMSHOP_PURCHASE', json_encode([
         'char' => $charName, 'source' => $source, 'ref' => $ref, 'count' => $count,
-        'result_ok' => $result['ok'] ?? false
+        'result_ok' => $result['ok'] ?? false,
+        'fallback_queued' => $result['fallback_queued'] ?? false,
     ]), (int)$_SESSION['user_id']);
 
     echo json_encode($result);

@@ -525,3 +525,32 @@ $smilies_list = [];
 try {
     $smilies_list = $db->query("SELECT * FROM spike_smilies ORDER BY pos ASC")->fetchAll();
 } catch(\Throwable $e){}
+
+$top_queries = [];
+try {
+    $top_queries = $db->query("
+        SELECT `query`, COUNT(*) AS cnt
+        FROM spike_search_log
+        WHERE `query` IS NOT NULL AND `query` <> ''
+        GROUP BY `query`
+        ORDER BY cnt DESC, `query` ASC
+        LIMIT 10
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) {
+    error_log('Spike search stats query failed: ' . $e->getMessage());
+}
+
+$read_stats = [];
+try {
+    $read_stats = $db->query("
+        SELECT t.id, t.title, COUNT(DISTINCT rm.user_id) AS reader_count
+        FROM spike_read_markers rm
+        JOIN spike_threads t ON t.id = rm.thread_id
+        GROUP BY t.id, t.title
+        HAVING reader_count > 0
+        ORDER BY reader_count DESC, t.id DESC
+        LIMIT 10
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) {
+    error_log('Spike read stats query failed: ' . $e->getMessage());
+}
