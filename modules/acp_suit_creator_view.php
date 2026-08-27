@@ -529,8 +529,7 @@ function sc_load_list() {
         .then(function(suits) {
             const list = $('sc-suit-list');
             if (!Array.isArray(suits)) {
-                list.innerHTML = '';
-                sc_flash(SC_LANG.err_request + (suits.error || 'invalid_response'), 'err');
+                list.innerHTML = '<div class="acp-s-2ec03dab">' + SC_LANG.err_request + (suits.error || 'invalid_response') + '</div>';
                 return;
             }
             if (!suits.length) {
