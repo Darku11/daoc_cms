@@ -136,9 +136,8 @@ function umUpdateGameAccount(PDO $db, string $username, int $privLevel, int $sta
 
 if (isset($_POST['um_ajax_search'])) {
     $search = '%' . trim((string)$_POST['um_ajax_search']) . '%';
-    $maxPriv = maxManageablePrivLevel($userPriv);
-    $stmt = $db->prepare("SELECT id, username, standing FROM users WHERE username LIKE ? AND priv_level <= ? LIMIT 8");
-    $stmt->execute([$search, $maxPriv]);
+    $stmt = $db->prepare("SELECT id, username, standing FROM users WHERE username LIKE ? ORDER BY id DESC LIMIT 8");
+    $stmt->execute([$search]);
     while ($u = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $sc = ((int)$u['standing'] >= 3) ? 'var(--red)' : (((int)$u['standing'] >= 1) ? 'var(--amber-warn)' : 'var(--parch-muted)');
         echo "<div class='um-sr-item' style='border-left:2px solid " . h($sc) . "' onclick='loadUserEditor(" . (int)$u['id'] . ")'>"
@@ -156,8 +155,8 @@ if (isset($_POST['um_load_cat'])) {
     elseif ($cat === 'warned') $where = 'standing BETWEEN 1 AND 2';
     elseif ($cat === 'staff') $where = 'priv_level >= 3';
 
-    $stmt = $db->prepare("SELECT id, username, standing, priv_level, forum_posts FROM users WHERE $where AND priv_level <= ? ORDER BY id DESC LIMIT 50");
-    $stmt->execute([maxManageablePrivLevel($userPriv)]);
+    $stmt = $db->prepare("SELECT id, username, standing, priv_level, forum_posts FROM users WHERE $where ORDER BY id DESC LIMIT 50");
+    $stmt->execute();
     echo "<table class='um-table'><thead><tr><th>" . t('sync_worker_th_user', [], 'User') . "</th><th>" . t('sync_worker_th_standing', [], 'Standing') . "</th><th>" . t('sync_worker_th_authlvl', [], 'AuthLvl') . "</th><th>" . t('sync_worker_th_posts', [], 'Posts') . "</th><th></th></tr></thead><tbody>";
     while ($u = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $sc = ((int)$u['standing'] >= 3) ? 'um-status-restricted' : (((int)$u['standing'] >= 1) ? 'um-status-warn' : 'um-status-good');
