@@ -98,6 +98,42 @@ function umStoreAvatar(array $file, int $targetId): ?string {
     return 'assets/img/avatars/' . $name;
 }
 
+function umUpdateGameAccount(PDO $db, string $username, int $privLevel, int $standing, string $reason): void {
+    $row = daoc_game_filter_table_row($db, 'account', [
+        'PrivLevel' => $privLevel,
+        'Banned' => $standing >= 4 ? 1 : 0,
+        'BanReason' => $standing >= 4 ? $reason : '',
+    ]);
+
+    if (!isset($row['PrivLevel']) && !isset($row['privlevel'])) {
+        $hasPrivilege = false;
+        foreach ($row as $column => $_value) {
+            if (strcasecmp((string)$column, 'PrivLevel') === 0) {
+                $hasPrivilege = true;
+                break;
+            }
+        }
+        if (!$hasPrivilege) {
+            throw new RuntimeException('Game account schema does not expose PrivLevel.');
+        }
+    }
+
+    $assignments = [];
+    $params = [];
+    foreach ($row as $column => $value) {
+        if (!preg_match('/^[A-Za-z0-9_]+$/', (string)$column)) {
+            throw new RuntimeException('Invalid game account column.');
+        }
+        $assignments[] = '`' . $column . '` = ?';
+        $params[] = $value;
+    }
+
+    $params[] = $username;
+    $accountTable = daoc_game_table_sql($db, 'account');
+    $stmt = $db->prepare('UPDATE ' . $accountTable . ' SET ' . implode(', ', $assignments) . ' WHERE `Name` = ?');
+    $stmt->execute($params);
+}
+
 if (isset($_POST['um_ajax_search'])) {
     $search = '%' . trim((string)$_POST['um_ajax_search']) . '%';
     $maxPriv = maxManageablePrivLevel($userPriv);
@@ -312,8 +348,13 @@ if ($action === 'update_full') {
         }
 
         $newIngamePriv = max(1, min(3, (int)($_POST['u_ingame_priv'] ?? 1)));
-        $db->prepare("UPDATE account SET PrivLevel = ?, Banned = ?, BanReason = ? WHERE Name = ?")
-           ->execute([$newIngamePriv, $newStanding >= 4 ? 1 : 0, $newStanding >= 4 ? (string)($_POST['u_reason'] ?? '') : '', $current['username']]);
+        umUpdateGameAccount(
+            $db,
+            $current['username'],
+            $newIngamePriv,
+            $newStanding,
+            (string)($_POST['u_reason'] ?? '')
+        );
 
         $db->prepare("UPDATE users SET priv_level = ?, standing = ?, standing_reason = ?, description = ?, user_title = ?, forum_signature = ? WHERE id = ?")
            ->execute([
