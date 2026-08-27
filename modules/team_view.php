@@ -24,12 +24,19 @@ cms_load_language_context('core');
             $tier_class = $priv >= 5 ? 'team-card--owner'
                         : ($priv >= 4 ? 'team-card--admin' : 'team-card--staff');
 
-            // Avatar: check relative path (prevents bugs on subfolder installs)
+            // Avatar URLs are stored relative to the CMS root. Resolve the
+            // filesystem check from that root instead of PHP's working directory.
             $has_avatar = false;
             $safe_avatar_url = '';
             if (!empty($m['avatar_url'])) {
-                $safe_avatar_url = ltrim($m['avatar_url'], '/');
-                $has_avatar = file_exists($safe_avatar_url);
+                $candidate = ltrim(str_replace('\\', '/', (string)$m['avatar_url']), '/');
+                if (preg_match('#^assets/img/avatars/[A-Za-z0-9._-]+$#', $candidate)) {
+                    $avatar_file = dirname(__DIR__) . '/' . $candidate;
+                    if (is_file($avatar_file)) {
+                        $safe_avatar_url = $candidate;
+                        $has_avatar = true;
+                    }
+                }
             }
     ?>
     <div class="team-card <?php echo $tier_class; ?>">
